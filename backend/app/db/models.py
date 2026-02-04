@@ -1,0 +1,44 @@
+"""
+SQLAlchemy database models.
+"""
+from sqlalchemy import Column, String, Integer, Text, DateTime, ForeignKey, JSON
+from sqlalchemy.sql import func
+from app.db.database import Base
+
+
+class WorkflowDB(Base):
+    """Workflow database model."""
+    __tablename__ = "workflows"
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    config = Column(JSON, nullable=False)  # Full workflow definition
+    version = Column(Integer, default=1)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class RunDB(Base):
+    """Run history database model."""
+    __tablename__ = "runs"
+
+    id = Column(String, primary_key=True)
+    workflow_id = Column(String, ForeignKey("workflows.id"), nullable=False)
+    status = Column(String, nullable=False)  # 'preview' | 'approved' | 'completed' | 'failed'
+    input_files = Column(JSON, nullable=True)
+    diff_summary = Column(JSON, nullable=True)
+    output_path = Column(JSON, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    completed_at = Column(DateTime, nullable=True)
+
+
+class AuditLogDB(Base):
+    """Audit log database model."""
+    __tablename__ = "audit_log"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    run_id = Column(String, ForeignKey("runs.id"), nullable=True)
+    action = Column(String, nullable=False)
+    details = Column(JSON, nullable=True)
+    timestamp = Column(DateTime, server_default=func.now())
