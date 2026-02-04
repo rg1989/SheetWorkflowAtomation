@@ -42,3 +42,16 @@ class AuditLogDB(Base):
     action = Column(String, nullable=False)
     details = Column(JSON, nullable=True)
     timestamp = Column(DateTime, server_default=func.now())
+
+
+class MergeWorkflowDB(Base):
+    """Merge workflow database model."""
+    __tablename__ = "merge_workflows"
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    config = Column(JSON, nullable=False)  # Full merge workflow definition
+    version = Column(Integer, default=1)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

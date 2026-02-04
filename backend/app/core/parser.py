@@ -9,13 +9,14 @@ import openpyxl
 class ExcelParser:
     """Parse Excel files into DataFrames."""
     
-    def parse(self, file_path: str, sheet_name: Optional[str] = None) -> pd.DataFrame:
+    def parse(self, file_path: str, sheet_name: Optional[str] = None, header_row: int = 0) -> pd.DataFrame:
         """
         Parse an Excel file and return a DataFrame.
         
         Args:
             file_path: Path to the Excel file
             sheet_name: Specific sheet to parse (default: first sheet)
+            header_row: Which row to use as column headers (0-indexed, default: 0 = first row)
             
         Returns:
             pandas DataFrame with the file contents
@@ -24,6 +25,7 @@ class ExcelParser:
             df = pd.read_excel(
                 file_path,
                 sheet_name=sheet_name or 0,
+                header=header_row,
                 engine='openpyxl'
             )
             

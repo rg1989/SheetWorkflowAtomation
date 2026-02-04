@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
-import { Download, FileSpreadsheet, FileText, History, CheckCircle, XCircle, Clock, Eye } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Download, FileSpreadsheet, FileText, History, CheckCircle, XCircle, Clock, Eye, Trash2 } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
@@ -17,6 +17,8 @@ const statusConfig: Record<RunStatus, { label: string; variant: 'default' | 'suc
 }
 
 export function HistoryPage() {
+  const queryClient = useQueryClient()
+
   const { data: runs, isLoading: runsLoading } = useQuery({
     queryKey: ['runs'],
     queryFn: () => runApi.list(),
@@ -27,10 +29,36 @@ export function HistoryPage() {
     queryFn: workflowApi.list,
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: runApi.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['runs'] })
+    },
+  })
+
+  const deleteAllMutation = useMutation({
+    mutationFn: runApi.deleteAll,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['runs'] })
+    },
+  })
+
   const workflowMap = new Map(workflows?.map((w) => [w.id, w.name]) ?? [])
 
   const handleDownload = (runId: string, type: 'excel' | 'pdf') => {
     window.open(runApi.downloadUrl(runId, type), '_blank')
+  }
+
+  const handleDelete = (runId: string) => {
+    if (confirm('Are you sure you want to delete this run?')) {
+      deleteMutation.mutate(runId)
+    }
+  }
+
+  const handleClearAll = () => {
+    if (confirm('Are you sure you want to delete ALL run history? This cannot be undone.')) {
+      deleteAllMutation.mutate()
+    }
   }
 
   if (runsLoading) {
@@ -44,11 +72,24 @@ export function HistoryPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Run History</h1>
-        <p className="text-slate-500 mt-1">
-          View past workflow executions and download outputs
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">Run History</h1>
+          <p className="text-slate-500 mt-1">
+            View past workflow executions and download outputs
+          </p>
+        </div>
+        {runs && runs.length > 0 && (
+          <Button
+            variant="secondary"
+            onClick={handleClearAll}
+            disabled={deleteAllMutation.isPending}
+            className="text-red-500 hover:text-red-600 hover:bg-red-50"
+          >
+            <Trash2 className="w-4 h-4" />
+            Clear All
+          </Button>
+        )}
       </div>
 
       {/* History list */}
@@ -61,21 +102,21 @@ export function HistoryPage() {
           />
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {runs.map((run) => {
             const status = statusConfig[run.status]
             const StatusIcon = status.icon
 
             return (
-              <Card key={run.id} className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center justify-center w-10 h-10 bg-slate-100 rounded-lg">
-                    <FileSpreadsheet className="w-5 h-5 text-slate-600" />
+              <Card key={run.id} className="flex items-center justify-between py-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-9 h-9 bg-slate-100 rounded-lg">
+                    <FileSpreadsheet className="w-4 h-4 text-slate-600" />
                   </div>
 
                   <div>
-                    <div className="flex items-center gap-3 mb-1">
-                      <h3 className="font-medium text-slate-900">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <h3 className="font-medium text-slate-900 text-sm">
                         {workflowMap.get(run.workflowId) || 'Unknown Workflow'}
                       </h3>
                       <Badge variant={status.variant}>
@@ -83,8 +124,7 @@ export function HistoryPage() {
                         {status.label}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-slate-500">
-                      <span>Run ID: {run.id.slice(0, 8)}...</span>
+                    <div className="flex items-center gap-3 text-xs text-slate-500">
                       <span>{formatRelativeTime(run.createdAt)}</span>
                       {run.completedAt && (
                         <span>Completed: {formatDate(run.completedAt)}</span>
@@ -93,28 +133,39 @@ export function HistoryPage() {
                   </div>
                 </div>
 
-                {run.status === 'completed' && (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleDownload(run.id, 'excel')}
-                    >
-                      <Download className="w-4 h-4" />
-                      Excel
-                    </Button>
-                    {run.outputPdf && (
+                <div className="flex items-center gap-2">
+                  {run.status === 'completed' && (
+                    <>
                       <Button
-                        variant="ghost"
+                        variant="secondary"
                         size="sm"
-                        onClick={() => handleDownload(run.id, 'pdf')}
+                        onClick={() => handleDownload(run.id, 'excel')}
                       >
-                        <FileText className="w-4 h-4" />
-                        PDF
+                        <Download className="w-4 h-4" />
+                        Excel
                       </Button>
-                    )}
-                  </div>
-                )}
+                      {run.outputPdf && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDownload(run.id, 'pdf')}
+                        >
+                          <FileText className="w-4 h-4" />
+                          PDF
+                        </Button>
+                      )}
+                    </>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(run.id)}
+                    disabled={deleteMutation.isPending}
+                    className="text-red-500 hover:text-red-600 hover:bg-red-50 !px-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </Card>
             )
           })}

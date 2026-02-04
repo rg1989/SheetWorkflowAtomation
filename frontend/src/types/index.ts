@@ -143,4 +143,8 @@ export interface FileParseResult {
   filename: string
   rowCount: number
   columns: ColumnInfo[]
+  sampleData?: Record<string, unknown>[]
+  sheetName?: string // The sheet that was parsed
+  availableSheets?: string[] // All sheets in the file
+  headerRow?: number // Which row was used as headers (1-indexed)
 }

@@ -4,6 +4,8 @@ import { WorkflowsPage } from './pages/WorkflowsPage'
 import { WorkflowEditorPage } from './pages/WorkflowEditorPage'
 import { RunWorkflowPage } from './pages/RunWorkflowPage'
 import { HistoryPage } from './pages/HistoryPage'
+import { MergeWorkflowPage } from './pages/MergeWorkflowPage'
+import { RunMergeWorkflowPage } from './pages/RunMergeWorkflowPage'
 
 function App() {
   return (
@@ -15,6 +17,9 @@ function App() {
           <Route path="workflows/new" element={<WorkflowEditorPage />} />
           <Route path="workflows/:id" element={<WorkflowEditorPage />} />
           <Route path="workflows/:id/run" element={<RunWorkflowPage />} />
+          <Route path="merge/new" element={<MergeWorkflowPage />} />
+          <Route path="merge/:id" element={<MergeWorkflowPage />} />
+          <Route path="merge/:id/run" element={<RunMergeWorkflowPage />} />
           <Route path="history" element={<HistoryPage />} />
         </Route>
       </Routes>

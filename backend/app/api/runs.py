@@ -315,3 +315,78 @@ async def get_run(
         diff=diff,
         status=run.status,
     )
+
+
+@router.delete("/{run_id}")
+async def delete_run(
+    run_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete a run and its associated files."""
+    result = await db.execute(
+        select(RunDB).where(RunDB.id == run_id)
+    )
+    run = result.scalar_one_or_none()
+    
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    
+    # Clean up files
+    try:
+        if run.input_files:
+            input_files = json.loads(run.input_files)
+            for path in input_files.values():
+                if path and os.path.exists(path):
+                    os.remove(path)
+        
+        if run.output_path:
+            output_files = json.loads(run.output_path)
+            for path in output_files.values():
+                if path and os.path.exists(path):
+                    os.remove(path)
+    except Exception:
+        pass  # Continue even if file cleanup fails
+    
+    # Delete associated audit logs
+    await db.execute(
+        select(AuditLogDB).where(AuditLogDB.run_id == run_id)
+    )
+    
+    await db.delete(run)
+    await db.commit()
+    
+    return {"message": "Run deleted successfully"}
+
+
+@router.delete("")
+async def delete_all_runs(
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete all runs and their associated files."""
+    result = await db.execute(select(RunDB))
+    runs = result.scalars().all()
+    
+    deleted_count = 0
+    for run in runs:
+        # Clean up files
+        try:
+            if run.input_files:
+                input_files = json.loads(run.input_files)
+                for path in input_files.values():
+                    if path and os.path.exists(path):
+                        os.remove(path)
+            
+            if run.output_path:
+                output_files = json.loads(run.output_path)
+                for path in output_files.values():
+                    if path and os.path.exists(path):
+                        os.remove(path)
+        except Exception:
+            pass
+        
+        await db.delete(run)
+        deleted_count += 1
+    
+    await db.commit()
+    
+    return {"message": f"Deleted {deleted_count} run(s)"}

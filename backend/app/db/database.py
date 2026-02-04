@@ -32,7 +32,7 @@ class Base(DeclarativeBase):
 
 async def create_tables():
     """Create all database tables."""
-    from app.db.models import WorkflowDB, RunDB, AuditLogDB  # noqa: F401
+    from app.db.models import WorkflowDB, RunDB, AuditLogDB, MergeWorkflowDB  # noqa: F401
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

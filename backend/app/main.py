@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 import os
 
 from app.db.database import create_tables
-from app.api import workflows, runs, files
+from app.api import workflows, runs, files, merge_workflows
 
 
 @asynccontextmanager
@@ -39,6 +39,7 @@ app.add_middleware(
 app.include_router(workflows.router, prefix="/api/workflows", tags=["workflows"])
 app.include_router(runs.router, prefix="/api/runs", tags=["runs"])
 app.include_router(files.router, prefix="/api/files", tags=["files"])
+app.include_router(merge_workflows.router, prefix="/api/merge-workflows", tags=["merge-workflows"])
 
 # Ensure data directories exist
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")

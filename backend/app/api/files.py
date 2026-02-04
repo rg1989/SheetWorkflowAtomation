@@ -1,8 +1,8 @@
 """
 File upload and parsing API endpoints.
 """
-from typing import List
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from typing import List, Optional
+from fastapi import APIRouter, UploadFile, File, HTTPException, Form
 import os
 import tempfile
 
@@ -12,10 +12,19 @@ router = APIRouter()
 
 
 @router.post("/parse-columns")
-async def parse_columns(file: UploadFile = File(...)):
+async def parse_columns(
+    file: UploadFile = File(...),
+    sheet_name: Optional[str] = Form(None),
+    header_row: int = Form(1)
+):
     """
     Parse an Excel file and return its column names.
     Useful for workflow configuration.
+    
+    Args:
+        file: The Excel file to parse
+        sheet_name: Optional sheet name to parse. If not provided, parses the first sheet.
+        header_row: Which row contains column headers (1-indexed for UX, default: 1 = first row)
     """
     if not file.filename.endswith(('.xlsx', '.xls')):
         raise HTTPException(status_code=400, detail="File must be an Excel file (.xlsx or .xls)")
@@ -28,7 +37,16 @@ async def parse_columns(file: UploadFile = File(...)):
     
     try:
         parser = ExcelParser()
-        df = parser.parse(tmp_path)
+        
+        # Get list of all sheets in the file
+        available_sheets = parser.get_sheets(tmp_path)
+        
+        # Parse the specified sheet (or first sheet if not specified)
+        # Convert header_row from 1-indexed (UX) to 0-indexed (pandas)
+        df = parser.parse(tmp_path, sheet_name=sheet_name, header_row=header_row - 1)
+        
+        # Determine which sheet was actually parsed
+        parsed_sheet = sheet_name if sheet_name else available_sheets[0] if available_sheets else None
         
         columns = []
         for col in df.columns:
@@ -47,10 +65,23 @@ async def parse_columns(file: UploadFile = File(...)):
                 "sampleValues": df[col].dropna().head(3).tolist(),
             })
         
+        # Get sample data rows for preview
+        sample_rows = df.head(5).to_dict('records')
+        # Convert any NaN values to None for JSON serialization
+        import math
+        for row in sample_rows:
+            for key, value in row.items():
+                if isinstance(value, float) and math.isnan(value):
+                    row[key] = None
+        
         return {
             "filename": file.filename,
             "rowCount": len(df),
             "columns": columns,
+            "sampleData": sample_rows,
+            "sheetName": parsed_sheet,
+            "availableSheets": available_sheets,
+            "headerRow": header_row,
         }
         
     except Exception as e:
