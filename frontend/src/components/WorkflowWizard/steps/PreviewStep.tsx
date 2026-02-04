@@ -1,14 +1,16 @@
 import { motion } from 'framer-motion'
-import { FileSpreadsheet, Columns, ArrowRight } from 'lucide-react'
+import { FileSpreadsheet, Columns, ArrowRight, GitMerge, Star } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { Input } from '../../ui/Input'
 import { OutputPreview } from '../OutputPreview'
 import { getFileColor } from '../../../lib/colors'
-import type { FileDefinition, OutputColumn } from '../../../types/merge'
+import type { FileDefinition, OutputColumn, JoinConfig } from '../../../types'
+import { JOIN_TYPE_INFO } from '../../../types'
 
 interface PreviewStepProps {
   files: FileDefinition[]
   outputColumns: OutputColumn[]
+  joinConfig?: JoinConfig
   workflowName: string
   workflowDescription: string
   onWorkflowNameChange: (name: string) => void
@@ -18,11 +20,16 @@ interface PreviewStepProps {
 export function PreviewStep({
   files,
   outputColumns,
+  joinConfig,
   workflowName,
   workflowDescription,
   onWorkflowNameChange,
   onWorkflowDescriptionChange,
 }: PreviewStepProps) {
+  // Get primary file info
+  const primaryFile = files.find((f) => f.id === joinConfig?.primaryFileId) || files[0]
+  const joinType = joinConfig?.joinType || 'left'
+  const joinInfo = JOIN_TYPE_INFO[joinType]
   // Count columns by source type
   const columnsByType = outputColumns.reduce(
     (acc, col) => {
@@ -39,7 +46,7 @@ export function PreviewStep({
           Review & Save
         </h2>
         <p className="text-slate-500">
-          Preview your merged output and give your workflow a name.
+          Preview your output and give your workflow a name.
         </p>
       </div>
 
@@ -53,7 +60,7 @@ export function PreviewStep({
           label="Workflow Name"
           value={workflowName}
           onChange={(e) => onWorkflowNameChange(e.target.value)}
-          placeholder="e.g., Monthly Sales Merge"
+          placeholder="e.g., Monthly Data Combine"
           autoFocus
         />
         <Input
@@ -63,6 +70,34 @@ export function PreviewStep({
           placeholder="What does this workflow do?"
         />
       </motion.div>
+
+      {/* Join Configuration Summary */}
+      {joinConfig && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="p-4 bg-blue-50 rounded-lg border border-blue-200"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <GitMerge className="w-5 h-5 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-blue-900">{joinInfo.label}</p>
+              <p className="text-sm text-blue-700">{joinInfo.description}</p>
+            </div>
+            {(joinType === 'left' || joinType === 'right') && primaryFile && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-blue-200">
+                <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                <span className="text-sm font-medium text-slate-700">
+                  Primary: {primaryFile.name}
+                </span>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
 
       {/* Summary */}
       <motion.div

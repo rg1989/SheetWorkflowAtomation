@@ -5,8 +5,7 @@ import { cn } from '../../../lib/utils'
 import { MAX_FILES, FILE_COLORS } from '../../../lib/colors'
 import { FileCard } from '../FileCard'
 import { fileApi } from '../../../lib/api'
-import type { FileDefinition } from '../../../types/merge'
-import type { ColumnInfo } from '../../../types'
+import type { FileDefinition, ColumnInfo } from '../../../types'
 
 interface FilesStepProps {
   files: FileDefinition[]
@@ -159,7 +158,7 @@ export function FilesStep({
           Upload Your Files
         </h2>
         <p className="text-slate-500">
-          Add the Excel files you want to merge. You can upload up to {MAX_FILES} files.
+          Add the Excel files you want to combine. You can upload up to {MAX_FILES} files.
         </p>
       </div>
 

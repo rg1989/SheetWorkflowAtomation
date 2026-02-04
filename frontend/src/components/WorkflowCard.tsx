@@ -4,15 +4,15 @@ import { cn } from '../lib/utils'
 import { Button } from './ui/Button'
 import { getFileColor } from '../lib/colors'
 import { formatRelativeTime } from '../lib/utils'
-import type { MergeWorkflow } from '../types/merge'
+import type { Workflow } from '../types'
 
-interface MergeWorkflowCardProps {
-  workflow: MergeWorkflow
+interface WorkflowCardProps {
+  workflow: Workflow
   onDelete: () => void
   isDeleting?: boolean
 }
 
-export function MergeWorkflowCard({ workflow, onDelete, isDeleting }: MergeWorkflowCardProps) {
+export function WorkflowCard({ workflow, onDelete, isDeleting }: WorkflowCardProps) {
   const files = workflow.files || []
   const outputColumns = workflow.outputColumns || []
 
@@ -34,13 +34,13 @@ export function MergeWorkflowCard({ workflow, onDelete, isDeleting }: MergeWorkf
           )}
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <Link to={`/merge/${workflow.id}`}>
+          <Link to={`/workflows/${workflow.id}`}>
             <Button variant="secondary" size="sm">
               <Pencil className="w-3.5 h-3.5" />
               Edit
             </Button>
           </Link>
-          <Link to={`/merge/${workflow.id}/run`}>
+          <Link to={`/workflows/${workflow.id}/run`}>
             <Button size="sm">
               <Play className="w-3.5 h-3.5" />
               Run

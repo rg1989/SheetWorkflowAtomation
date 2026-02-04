@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Download, FileSpreadsheet, FileText, History, CheckCircle, XCircle, Clock, Eye, Trash2 } from 'lucide-react'
+import { Download, FileSpreadsheet, History, CheckCircle, XCircle, Eye, Trash2 } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
@@ -11,7 +11,6 @@ import type { Run, RunStatus } from '../types'
 
 const statusConfig: Record<RunStatus, { label: string; variant: 'default' | 'success' | 'warning' | 'error' | 'info'; icon: typeof CheckCircle }> = {
   preview: { label: 'Preview', variant: 'info', icon: Eye },
-  approved: { label: 'Approved', variant: 'warning', icon: Clock },
   completed: { label: 'Completed', variant: 'success', icon: CheckCircle },
   failed: { label: 'Failed', variant: 'error', icon: XCircle },
 }
@@ -104,7 +103,7 @@ export function HistoryPage() {
       ) : (
         <div className="space-y-3">
           {runs.map((run) => {
-            const status = statusConfig[run.status]
+            const status = statusConfig[run.status] || statusConfig.completed
             const StatusIcon = status.icon
 
             return (
@@ -135,26 +134,14 @@ export function HistoryPage() {
 
                 <div className="flex items-center gap-2">
                   {run.status === 'completed' && (
-                    <>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handleDownload(run.id, 'excel')}
-                      >
-                        <Download className="w-4 h-4" />
-                        Excel
-                      </Button>
-                      {run.outputPdf && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDownload(run.id, 'pdf')}
-                        >
-                          <FileText className="w-4 h-4" />
-                          PDF
-                        </Button>
-                      )}
-                    </>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleDownload(run.id, 'excel')}
+                    >
+                      <Download className="w-4 h-4" />
+                      Excel
+                    </Button>
                   )}
                   <Button
                     variant="ghost"

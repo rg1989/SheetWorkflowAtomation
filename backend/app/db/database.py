@@ -2,13 +2,23 @@
 Database connection and session management.
 """
 import os
+import sys
+from pathlib import Path
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 
-# Database path
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "data")
-os.makedirs(DATA_DIR, exist_ok=True)
-DATABASE_URL = f"sqlite+aiosqlite:///{os.path.join(DATA_DIR, 'workflow.db')}"
+# Database path - check environment variable first (set by desktop_app.py when bundled)
+if os.environ.get("SHEET_WORKFLOW_DATA_DIR"):
+    DATA_DIR = Path(os.environ["SHEET_WORKFLOW_DATA_DIR"])
+elif getattr(sys, 'frozen', False):
+    # Running as bundled executable without env var set
+    DATA_DIR = Path(sys.executable).parent / "data"
+else:
+    # Running in development
+    DATA_DIR = Path(__file__).parent.parent.parent.parent / "data"
+
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+DATABASE_URL = f"sqlite+aiosqlite:///{DATA_DIR / 'workflow.db'}"
 
 # Create async engine
 engine = create_async_engine(
@@ -32,7 +42,7 @@ class Base(DeclarativeBase):
 
 async def create_tables():
     """Create all database tables."""
-    from app.db.models import WorkflowDB, RunDB, AuditLogDB, MergeWorkflowDB  # noqa: F401
+    from app.db.models import WorkflowDB, RunDB, AuditLogDB  # noqa: F401
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

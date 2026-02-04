@@ -15,7 +15,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
-import { Plus, Columns, X, Check } from 'lucide-react'
+import { Plus, Columns, X, Check, CheckSquare, Trash2 } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { generateId } from '../../../lib/utils'
 import { Button } from '../../ui/Button'
@@ -24,7 +24,7 @@ import { OutputColumnCard } from '../OutputColumnCard'
 import { ColumnSourceEditor } from '../ColumnSourceEditor'
 import { FileLegend } from '../FileLegend'
 import { getFileColor } from '../../../lib/colors'
-import type { FileDefinition, OutputColumn, ColumnSource } from '../../../types/merge'
+import type { FileDefinition, OutputColumn, ColumnSource } from '../../../types'
 
 interface OutputColumnsStepProps {
   files: FileDefinition[]
@@ -153,6 +153,42 @@ export function OutputColumnsStep({
     [files, outputColumns, onOutputColumnsChange]
   )
 
+  // Select all columns from a specific file
+  const handleSelectAllFromFile = useCallback(
+    (fileId: string) => {
+      const file = files.find((f) => f.id === fileId)
+      if (!file) return
+
+      // Get columns that haven't been added yet from this file
+      const columnsToAdd = file.columns.filter(
+        (col) =>
+          !outputColumns.some(
+            (oc) =>
+              oc.source.type === 'direct' &&
+              oc.source.fileId === fileId &&
+              oc.source.column === col.name
+          )
+      )
+
+      if (columnsToAdd.length === 0) return
+
+      const newColumns: OutputColumn[] = columnsToAdd.map((col, index) => ({
+        id: generateId(),
+        name: col.name,
+        source: { type: 'direct', fileId, column: col.name },
+        order: outputColumns.length + index,
+      }))
+
+      onOutputColumnsChange([...outputColumns, ...newColumns])
+    },
+    [files, outputColumns, onOutputColumnsChange]
+  )
+
+  // Clear all output columns
+  const handleClearAll = useCallback(() => {
+    onOutputColumnsChange([])
+  }, [onOutputColumnsChange])
+
   const cancelEdit = () => {
     setIsAddingColumn(false)
     setEditingColumnId(null)
@@ -191,7 +227,7 @@ export function OutputColumnsStep({
           Define Output Columns
         </h2>
         <p className="text-slate-500">
-          Choose which columns will appear in your merged output. Drag to reorder.
+          Choose which columns will appear in your output. Drag to reorder.
         </p>
       </div>
 
@@ -225,9 +261,23 @@ export function OutputColumnsStep({
                   animate={{ opacity: 1, y: 0 }}
                   className={cn('rounded-lg border p-3', color.borderLight, color.bgLight)}
                 >
-                  <h4 className={cn('font-medium text-sm mb-2', color.textDark)}>
-                    {file.name}
-                  </h4>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className={cn('font-medium text-sm', color.textDark)}>
+                      {file.name}
+                    </h4>
+                    <button
+                      onClick={() => handleSelectAllFromFile(file.id)}
+                      className={cn(
+                        'flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded transition-all',
+                        'hover:bg-white/50',
+                        color.text
+                      )}
+                      title={`Select all columns from ${file.name}`}
+                    >
+                      <CheckSquare className="w-3 h-3" />
+                      Select All
+                    </button>
+                  </div>
                   <div className="flex flex-wrap gap-1.5">
                     {fileColumns.map((col) => (
                       <motion.button
@@ -271,12 +321,24 @@ export function OutputColumnsStep({
 
         {/* Right panel: Output columns */}
         <div className="space-y-4">
-          <h3 className="font-medium text-slate-700 flex items-center gap-2">
-            <Columns className="w-4 h-4" />
-            Output Columns ({outputColumns.length})
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium text-slate-700 flex items-center gap-2">
+              <Columns className="w-4 h-4" />
+              Output Columns ({outputColumns.length})
+            </h3>
+            {outputColumns.length > 0 && (
+              <button
+                onClick={handleClearAll}
+                className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 rounded transition-all"
+                title="Clear all output columns"
+              >
+                <Trash2 className="w-3 h-3" />
+                Clear All
+              </button>
+            )}
+          </div>
           <p className="text-sm text-slate-500">
-            These columns will appear in your merged output, in this order.
+            These columns will appear in your output, in this order.
           </p>
 
           <DndContext

@@ -2,7 +2,7 @@ import { motion } from 'framer-motion'
 import { FileSpreadsheet } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { getFileColor } from '../../lib/colors'
-import type { FileDefinition } from '../../types/merge'
+import type { FileDefinition } from '../../types'
 
 interface FileLegendProps {
   files: FileDefinition[]

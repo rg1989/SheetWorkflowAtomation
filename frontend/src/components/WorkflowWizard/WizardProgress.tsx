@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import { Check } from 'lucide-react'
 import { cn } from '../../lib/utils'
-import { WIZARD_STEPS } from '../../types/merge'
+import { WIZARD_STEPS } from '../../types'
 
 interface WizardProgressProps {
   currentStep: number

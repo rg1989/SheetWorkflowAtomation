@@ -1,14 +1,26 @@
 """
 Workflow execution engine.
+Combines multiple files into a single output based on defined column sources.
+Supports different join types: INNER, LEFT, RIGHT, FULL.
 """
 import pandas as pd
-from typing import List, Dict, Any, Tuple, Optional
-from app.models.workflow import ConditionOperator, ActionType
-from app.models.diff import CellChange, ChangeType
+from typing import List, Dict, Any, Optional, Tuple, Set
+from app.models.workflow import (
+    Workflow,
+    OutputColumn,
+    ColumnSource,
+    DirectColumnSource,
+    ConcatColumnSource,
+    MathColumnSource,
+    CustomColumnSource,
+    KeyColumnConfig,
+    JoinConfig,
+    JoinType,
+)
 
 
 class WorkflowEngine:
-    """Execute workflows on DataFrames."""
+    """Execute workflows on multiple DataFrames."""
     
     def __init__(self, workflow_config: Dict[str, Any]):
         """
@@ -18,212 +30,473 @@ class WorkflowEngine:
             workflow_config: Full workflow config dict
         """
         self.config = workflow_config
-        self.source_config = workflow_config.get("sourceConfig", {})
-        self.key_column = self.source_config.get("keyColumn", "")
-        self.steps = workflow_config.get("steps", [])
+        self.files_config = workflow_config.get("files", [])
+        self.key_column_config = workflow_config.get("keyColumn")
+        self.join_config = workflow_config.get("joinConfig")
+        self.output_columns = workflow_config.get("outputColumns", [])
+        
+        # Build file ID to config mapping
+        self.file_map = {f["id"]: f for f in self.files_config}
+    
+    def _get_key_values_for_join_type(
+        self,
+        join_type: str,
+        primary_file_id: str,
+        key_mappings: Dict[str, str],
+        dataframes: Dict[str, pd.DataFrame],
+        warnings: List[str]
+    ) -> Optional[List[Any]]:
+        """
+        Get the list of key values to iterate over based on join type.
+        
+        Args:
+            join_type: One of 'inner', 'left', 'right', 'full'
+            primary_file_id: The file ID designated as primary (for left/right joins)
+            key_mappings: Dict mapping file ID to key column name
+            dataframes: Dict mapping file IDs to DataFrames
+            warnings: List to append warnings to
+            
+        Returns:
+            List of key values, or None if error
+        """
+        if join_type == "inner":
+            # INNER: Only keys present in ALL files (intersection)
+            return self._get_intersection_keys(key_mappings, dataframes, warnings)
+        
+        elif join_type == "left":
+            # LEFT: All keys from primary file
+            return self._get_keys_from_file(primary_file_id, key_mappings, dataframes, warnings)
+        
+        elif join_type == "right":
+            # RIGHT: All keys from the last file
+            last_file_id = self.files_config[-1]["id"] if self.files_config else None
+            if last_file_id:
+                return self._get_keys_from_file(last_file_id, key_mappings, dataframes, warnings)
+            else:
+                warnings.append("No files available for right join")
+                return None
+        
+        elif join_type == "full":
+            # FULL: All keys from ALL files (union)
+            return self._get_union_keys(key_mappings, dataframes, warnings)
+        
+        else:
+            # Default to left join behavior
+            return self._get_keys_from_file(primary_file_id, key_mappings, dataframes, warnings)
+    
+    def _get_keys_from_file(
+        self,
+        file_id: str,
+        key_mappings: Dict[str, str],
+        dataframes: Dict[str, pd.DataFrame],
+        warnings: List[str]
+    ) -> Optional[List[Any]]:
+        """Get all unique key values from a specific file."""
+        if file_id not in dataframes:
+            warnings.append(f"File '{file_id}' not found in provided dataframes")
+            return None
+        
+        key_column = key_mappings.get(file_id)
+        if not key_column:
+            warnings.append(f"No key column mapping for file '{file_id}'")
+            return None
+        
+        df = dataframes[file_id]
+        if key_column not in df.columns:
+            warnings.append(f"Key column '{key_column}' not found in file. Available: {list(df.columns)}")
+            return None
+        
+        return df[key_column].dropna().unique().tolist()
+    
+    def _get_intersection_keys(
+        self,
+        key_mappings: Dict[str, str],
+        dataframes: Dict[str, pd.DataFrame],
+        warnings: List[str]
+    ) -> Optional[List[Any]]:
+        """Get keys that exist in ALL files (intersection)."""
+        all_key_sets: List[Set[str]] = []
+        
+        for file_id, df in dataframes.items():
+            key_column = key_mappings.get(file_id)
+            if key_column and key_column in df.columns:
+                # Convert to strings for consistent comparison
+                keys = set(df[key_column].dropna().astype(str).unique())
+                all_key_sets.append(keys)
+        
+        if not all_key_sets:
+            warnings.append("No valid key columns found in any file")
+            return None
+        
+        # Intersection of all sets
+        intersection = all_key_sets[0]
+        for key_set in all_key_sets[1:]:
+            intersection = intersection & key_set
+        
+        return list(intersection)
+    
+    def _get_union_keys(
+        self,
+        key_mappings: Dict[str, str],
+        dataframes: Dict[str, pd.DataFrame],
+        warnings: List[str]
+    ) -> Optional[List[Any]]:
+        """Get all unique keys from ALL files (union)."""
+        all_keys: Set[str] = set()
+        
+        for file_id, df in dataframes.items():
+            key_column = key_mappings.get(file_id)
+            if key_column and key_column in df.columns:
+                # Convert to strings for consistent comparison
+                keys = set(df[key_column].dropna().astype(str).unique())
+                all_keys = all_keys | keys
+        
+        if not all_keys:
+            warnings.append("No valid key columns found in any file")
+            return None
+        
+        return list(all_keys)
     
     def execute(
         self,
-        source_df: pd.DataFrame,
-        target_df: pd.DataFrame
-    ) -> Tuple[List[CellChange], pd.DataFrame]:
+        dataframes: Dict[str, pd.DataFrame]
+    ) -> Tuple[pd.DataFrame, List[str]]:
         """
-        Execute the workflow on source and target DataFrames.
+        Execute the workflow on multiple DataFrames.
         
         Args:
-            source_df: Source data (e.g., sales data)
-            target_df: Target data to modify (e.g., inventory)
+            dataframes: Dict mapping file IDs to their DataFrames
             
         Returns:
-            Tuple of (list of changes, modified target DataFrame)
+            Tuple of (output DataFrame, list of warnings)
         """
-        # Create a copy of target to modify
-        modified_df = target_df.copy()
-        all_changes: List[CellChange] = []
+        warnings: List[str] = []
         
-        for step in self.steps:
-            step_id = step.get("id", "")
-            step_name = step.get("name", "")
-            conditions = step.get("conditions", [])
-            actions = step.get("actions", [])
-            
-            # Find matching rows in source
-            matched_source_rows = self._apply_conditions(source_df, conditions)
-            
-            # For each matched source row, find corresponding target row and apply actions
-            for source_idx in matched_source_rows:
-                source_row = source_df.iloc[source_idx]
-                key_value = source_row.get(self.key_column)
-                
-                if key_value is None or pd.isna(key_value):
-                    continue
-                
-                # Find matching row in target
-                target_mask = modified_df[self.key_column].astype(str) == str(key_value)
-                target_indices = modified_df[target_mask].index.tolist()
-                
-                if not target_indices:
-                    continue
-                
-                target_idx = target_indices[0]
-                
-                # Apply each action
-                for action in actions:
-                    changes = self._apply_action(
-                        action=action,
-                        source_row=source_row,
-                        target_df=modified_df,
-                        target_idx=target_idx,
-                        key_value=str(key_value),
-                        step_id=step_id,
-                        step_name=step_name,
-                    )
-                    all_changes.extend(changes)
+        if not self.output_columns:
+            warnings.append("No output columns defined")
+            return pd.DataFrame(), warnings
         
-        return all_changes, modified_df
-    
-    def _apply_conditions(
-        self,
-        df: pd.DataFrame,
-        conditions: List[Dict[str, Any]]
-    ) -> List[int]:
-        """
-        Apply conditions to find matching row indices.
-        All conditions are ANDed together.
-        """
-        if not conditions:
-            # No conditions = match all rows
-            return list(range(len(df)))
+        # Sort output columns by order
+        sorted_columns = sorted(self.output_columns, key=lambda c: c.get("order", 0))
         
-        mask = pd.Series([True] * len(df))
+        # Determine join type and primary file
+        join_type = "left"  # Default to LEFT join
+        primary_file_id = self.files_config[0]["id"] if self.files_config else None
         
-        for cond in conditions:
-            column = cond.get("column", "")
-            operator = cond.get("operator", "")
-            value = cond.get("value")
+        if self.join_config:
+            join_type = self.join_config.get("joinType", "left")
+            primary_file_id = self.join_config.get("primaryFileId", primary_file_id)
+        
+        # Determine the base rows based on join type
+        # If key column is set, combine on that; otherwise use first file's rows
+        if self.key_column_config:
+            # Key column config has a "mappings" dict: fileId -> column name for each file
+            key_mappings = self.key_column_config.get("mappings", {})
             
-            if column not in df.columns:
-                continue
+            if not key_mappings:
+                warnings.append("No key column mappings defined")
+                return pd.DataFrame(), warnings
             
-            col_data = df[column]
+            # Validate primary file exists
+            if not primary_file_id or primary_file_id not in dataframes:
+                warnings.append("Primary file not found in provided dataframes")
+                return pd.DataFrame(), warnings
             
-            if operator == ConditionOperator.EQUALS or operator == "equals":
-                cond_mask = col_data.astype(str) == str(value)
-            elif operator == ConditionOperator.NOT_EQUALS or operator == "notEquals":
-                cond_mask = col_data.astype(str) != str(value)
-            elif operator == ConditionOperator.CONTAINS or operator == "contains":
-                cond_mask = col_data.astype(str).str.contains(str(value), case=False, na=False)
-            elif operator == ConditionOperator.NOT_CONTAINS or operator == "notContains":
-                cond_mask = ~col_data.astype(str).str.contains(str(value), case=False, na=False)
-            elif operator == ConditionOperator.STARTS_WITH or operator == "startsWith":
-                cond_mask = col_data.astype(str).str.startswith(str(value), na=False)
-            elif operator == ConditionOperator.ENDS_WITH or operator == "endsWith":
-                cond_mask = col_data.astype(str).str.endswith(str(value), na=False)
-            elif operator == ConditionOperator.EXISTS or operator == "exists":
-                cond_mask = col_data.notna() & (col_data.astype(str) != "")
-            elif operator == ConditionOperator.IS_EMPTY or operator == "isEmpty":
-                cond_mask = col_data.isna() | (col_data.astype(str) == "")
-            elif operator == ConditionOperator.GREATER_THAN or operator == "greaterThan":
-                cond_mask = pd.to_numeric(col_data, errors='coerce') > float(value)
-            elif operator == ConditionOperator.LESS_THAN or operator == "lessThan":
-                cond_mask = pd.to_numeric(col_data, errors='coerce') < float(value)
-            elif operator == ConditionOperator.GREATER_THAN_OR_EQUAL or operator == "greaterThanOrEqual":
-                cond_mask = pd.to_numeric(col_data, errors='coerce') >= float(value)
-            elif operator == ConditionOperator.LESS_THAN_OR_EQUAL or operator == "lessThanOrEqual":
-                cond_mask = pd.to_numeric(col_data, errors='coerce') <= float(value)
+            # Get key values based on join type
+            key_values = self._get_key_values_for_join_type(
+                join_type, primary_file_id, key_mappings, dataframes, warnings
+            )
+            
+            if key_values is None:
+                return pd.DataFrame(), warnings
+        else:
+            # No key column - use first file as base (index-based matching)
+            first_file_id = self.files_config[0]["id"] if self.files_config else None
+            if first_file_id and first_file_id in dataframes:
+                base_df = dataframes[first_file_id]
+                key_values = list(range(len(base_df)))
             else:
-                cond_mask = pd.Series([True] * len(df))
-            
-            mask = mask & cond_mask
+                warnings.append("No files available to process")
+                return pd.DataFrame(), warnings
         
-        return df[mask].index.tolist()
+        # Build the output DataFrame
+        output_data: Dict[str, List[Any]] = {col["name"]: [] for col in sorted_columns}
+        
+        # Track unmatched keys per file for summary warning
+        unmatched_keys_by_file: Dict[str, List[str]] = {file_id: [] for file_id in dataframes.keys()}
+        
+        # Process each row
+        for idx, key_value in enumerate(key_values):
+            # Get matching row data from each file
+            file_rows: Dict[str, Optional[pd.Series]] = {}
+            
+            if self.key_column_config:
+                key_mappings = self.key_column_config.get("mappings", {})
+                for file_id, df in dataframes.items():
+                    # Get the key column name for this specific file
+                    file_key_col = key_mappings.get(file_id)
+                    
+                    if file_key_col and file_key_col in df.columns:
+                        # Match by key value using this file's key column
+                        matching_rows = df[df[file_key_col].astype(str) == str(key_value)]
+                        if len(matching_rows) > 0:
+                            file_rows[file_id] = matching_rows.iloc[0]
+                        else:
+                            file_rows[file_id] = None
+                            # Track unmatched key for this file
+                            if len(unmatched_keys_by_file[file_id]) < 10:  # Limit to first 10
+                                unmatched_keys_by_file[file_id].append(str(key_value))
+                    else:
+                        # No key column for this file, try to match by index
+                        if idx < len(df):
+                            file_rows[file_id] = df.iloc[idx]
+                        else:
+                            file_rows[file_id] = None
+            else:
+                # Match by index
+                for file_id, df in dataframes.items():
+                    if idx < len(df):
+                        file_rows[file_id] = df.iloc[idx]
+                    else:
+                        file_rows[file_id] = None
+            
+            # Process each output column
+            for col_config in sorted_columns:
+                col_name = col_config["name"]
+                source = col_config.get("source", {})
+                value = self._compute_column_value(source, file_rows, warnings)
+                output_data[col_name].append(value)
+        
+        # Create output DataFrame
+        output_df = pd.DataFrame(output_data)
+        
+        # Add summary warnings for unmatched keys
+        for file_id, unmatched_keys in unmatched_keys_by_file.items():
+            if unmatched_keys:
+                file_name = self.file_map.get(file_id, {}).get("name", file_id)
+                sample_keys = ", ".join(unmatched_keys[:5])
+                if len(unmatched_keys) > 5:
+                    sample_keys += f" (and {len(unmatched_keys) - 5} more...)"
+                warnings.append(
+                    f"'{file_name}' had {len(unmatched_keys)}+ keys with no match: {sample_keys}"
+                )
+        
+        return output_df, warnings
     
-    def _apply_action(
+    def _compute_column_value(
         self,
-        action: Dict[str, Any],
-        source_row: pd.Series,
-        target_df: pd.DataFrame,
-        target_idx: int,
-        key_value: str,
-        step_id: str,
-        step_name: str,
-    ) -> List[CellChange]:
-        """Apply a single action and return the changes made."""
-        changes = []
+        source: Dict[str, Any],
+        file_rows: Dict[str, Optional[pd.Series]],
+        warnings: List[str]
+    ) -> Any:
+        """
+        Compute the value for a single cell based on the column source configuration.
+        """
+        source_type = source.get("type", "custom")
         
-        action_type = action.get("type", "")
-        target_column = action.get("targetColumn", "")
-        source_column = action.get("sourceColumn")
-        value = action.get("value")
-        
-        if target_column not in target_df.columns:
-            return changes
-        
-        old_value = target_df.at[target_idx, target_column]
-        new_value = old_value
-        
-        if action_type == ActionType.SET_VALUE or action_type == "setValue":
-            new_value = value
-            
-        elif action_type == ActionType.INCREMENT or action_type == "increment":
-            try:
-                current = float(old_value) if pd.notna(old_value) else 0
-                increment = float(value) if value is not None else 0
-                if source_column and source_column in source_row.index:
-                    increment = float(source_row[source_column]) if pd.notna(source_row[source_column]) else 0
-                new_value = current + increment
-            except (ValueError, TypeError):
-                new_value = old_value
-                
-        elif action_type == ActionType.DECREMENT or action_type == "decrement":
-            try:
-                current = float(old_value) if pd.notna(old_value) else 0
-                decrement = float(value) if value is not None else 0
-                if source_column and source_column in source_row.index:
-                    decrement = float(source_row[source_column]) if pd.notna(source_row[source_column]) else 0
-                new_value = current - decrement
-            except (ValueError, TypeError):
-                new_value = old_value
-                
-        elif action_type == ActionType.COPY_FROM or action_type == "copyFrom":
-            if source_column and source_column in source_row.index:
-                new_value = source_row[source_column]
-                
-        elif action_type == ActionType.CLEAR or action_type == "clear":
-            new_value = None
-            
-        elif action_type == ActionType.FLAG or action_type == "flag":
-            new_value = value if value else "FLAGGED"
-        
-        # Only record change if value actually changed
-        if not self._values_equal(old_value, new_value):
-            target_df.at[target_idx, target_column] = new_value
-            
-            changes.append(CellChange(
-                row=int(target_idx),
-                column=target_column,
-                keyValue=key_value,
-                oldValue=self._serialize_value(old_value),
-                newValue=self._serialize_value(new_value),
-                changeType=ChangeType.MODIFIED,
-                stepId=step_id,
-                stepName=step_name,
-            ))
-        
-        return changes
-    
-    def _values_equal(self, v1: Any, v2: Any) -> bool:
-        """Check if two values are equal, handling NaN/None."""
-        if pd.isna(v1) and pd.isna(v2):
-            return True
-        if pd.isna(v1) or pd.isna(v2):
-            return False
-        return v1 == v2
-    
-    def _serialize_value(self, value: Any) -> Optional[Any]:
-        """Serialize a value for JSON output."""
-        if pd.isna(value):
+        if source_type == "direct":
+            return self._compute_direct(source, file_rows)
+        elif source_type == "concat":
+            return self._compute_concat(source, file_rows)
+        elif source_type == "math":
+            return self._compute_math(source, file_rows, warnings)
+        elif source_type == "custom":
+            return source.get("defaultValue", "")
+        else:
             return None
-        if isinstance(value, (int, float, str, bool)):
+    
+    def _compute_direct(
+        self,
+        source: Dict[str, Any],
+        file_rows: Dict[str, Optional[pd.Series]]
+    ) -> Any:
+        """Get value directly from a column."""
+        file_id = source.get("fileId")
+        column = source.get("column")
+        
+        if not file_id or not column:
+            return None
+        
+        row = file_rows.get(file_id)
+        if row is None:
+            return None
+        
+        if column in row.index:
+            value = row[column]
+            if pd.isna(value):
+                return None
             return value
-        return str(value)
+        return None
+    
+    def _compute_concat(
+        self,
+        source: Dict[str, Any],
+        file_rows: Dict[str, Optional[pd.Series]]
+    ) -> str:
+        """Concatenate multiple parts into a string."""
+        parts = source.get("parts", [])
+        separator = source.get("separator", "")
+        
+        result_parts = []
+        for part in parts:
+            part_type = part.get("type")
+            
+            if part_type == "literal":
+                result_parts.append(str(part.get("value", "")))
+            elif part_type == "column":
+                file_id = part.get("fileId")
+                column = part.get("column")
+                
+                if file_id and column:
+                    row = file_rows.get(file_id)
+                    if row is not None and column in row.index:
+                        value = row[column]
+                        if not pd.isna(value):
+                            result_parts.append(str(value))
+                        else:
+                            result_parts.append("")
+                    else:
+                        result_parts.append("")
+                else:
+                    result_parts.append("")
+        
+        return separator.join(result_parts)
+    
+    def _compute_math(
+        self,
+        source: Dict[str, Any],
+        file_rows: Dict[str, Optional[pd.Series]],
+        warnings: List[str]
+    ) -> Optional[float]:
+        """Perform a math operation on operands."""
+        operation = source.get("operation", "add")
+        operands = source.get("operands", [])
+        
+        if not operands:
+            return None
+        
+        values: List[float] = []
+        for operand in operands:
+            operand_type = operand.get("type")
+            
+            if operand_type == "literal":
+                val = operand.get("value")
+                if val is not None:
+                    try:
+                        values.append(float(val))
+                    except (ValueError, TypeError):
+                        values.append(0.0)
+            elif operand_type == "column":
+                file_id = operand.get("fileId")
+                column = operand.get("column")
+                
+                if file_id and column:
+                    row = file_rows.get(file_id)
+                    if row is not None:
+                        if column in row.index:
+                            cell_value = row[column]
+                            if pd.notna(cell_value):
+                                try:
+                                    values.append(float(cell_value))
+                                except (ValueError, TypeError):
+                                    # Non-numeric value, treat as 0
+                                    values.append(0.0)
+                            else:
+                                # NaN value
+                                values.append(0.0)
+                        else:
+                            # Column not found in row - this might be the issue
+                            # Let's be more flexible with column matching (strip whitespace)
+                            found = False
+                            for col in row.index:
+                                if str(col).strip() == str(column).strip():
+                                    cell_value = row[col]
+                                    if pd.notna(cell_value):
+                                        try:
+                                            values.append(float(cell_value))
+                                            found = True
+                                            break
+                                        except (ValueError, TypeError):
+                                            values.append(0.0)
+                                            found = True
+                                            break
+                            if not found:
+                                values.append(0.0)
+                    else:
+                        # No row data for this file (no matching key)
+                        values.append(0.0)
+                else:
+                    values.append(0.0)
+        
+        if not values:
+            return None
+        
+        # Perform the operation
+        try:
+            if operation == "add":
+                return sum(values)
+            elif operation == "subtract":
+                result = values[0]
+                for v in values[1:]:
+                    result -= v
+                return result
+            elif operation == "multiply":
+                result = 1.0
+                for v in values:
+                    result *= v
+                return result
+            elif operation == "divide":
+                result = values[0]
+                for v in values[1:]:
+                    if v == 0:
+                        warnings.append("Division by zero encountered")
+                        return None
+                    result /= v
+                return result
+            else:
+                return None
+        except Exception as e:
+            warnings.append(f"Math error: {str(e)}")
+            return None
+    
+    def preview(
+        self,
+        dataframes: Dict[str, pd.DataFrame],
+        max_rows: int = 10
+    ) -> Tuple[pd.DataFrame, List[str]]:
+        """
+        Generate a preview of the result.
+        
+        Args:
+            dataframes: Dict mapping file IDs to their DataFrames
+            max_rows: Maximum number of rows to include in preview
+            
+        Returns:
+            Tuple of (preview DataFrame, list of warnings)
+        """
+        output_df, warnings = self.execute(dataframes)
+        
+        # Limit rows for preview
+        if len(output_df) > max_rows:
+            output_df = output_df.head(max_rows)
+            warnings.append(f"Preview limited to {max_rows} rows")
+        
+        return output_df, warnings
+
+
+def execute_workflow(
+    workflow_config: Dict[str, Any],
+    dataframes: Dict[str, pd.DataFrame]
+) -> Tuple[pd.DataFrame, List[str]]:
+    """
+    Convenience function to execute a workflow.
+    
+    Args:
+        workflow_config: The workflow configuration
+        dataframes: Dict mapping file IDs to their DataFrames
+        
+    Returns:
+        Tuple of (output DataFrame, list of warnings)
+    """
+    engine = WorkflowEngine(workflow_config)
+    return engine.execute(dataframes)

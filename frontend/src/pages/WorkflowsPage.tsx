@@ -1,28 +1,20 @@
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Play, Edit, Trash2, Workflow, Combine } from 'lucide-react'
+import { Plus, Workflow } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
-import { Badge } from '../components/ui/Badge'
 import { EmptyState } from '../components/ui/EmptyState'
 import { Spinner } from '../components/ui/Spinner'
-import { MergeWorkflowCard } from '../components/MergeWorkflowCard'
-import { workflowApi, mergeWorkflowApi } from '../lib/api'
-import { formatRelativeTime } from '../lib/utils'
+import { WorkflowCard } from '../components/WorkflowCard'
+import { workflowApi } from '../lib/api'
 
 export function WorkflowsPage() {
   const queryClient = useQueryClient()
 
-  // Fetch regular workflows
-  const { data: workflows, isLoading: isLoadingWorkflows, error: workflowsError } = useQuery({
+  // Fetch workflows
+  const { data: workflows, isLoading, error } = useQuery({
     queryKey: ['workflows'],
     queryFn: workflowApi.list,
-  })
-
-  // Fetch merge workflows
-  const { data: mergeWorkflows, isLoading: isLoadingMerge, error: mergeError } = useQuery({
-    queryKey: ['merge-workflows'],
-    queryFn: mergeWorkflowApi.list,
   })
 
   const deleteMutation = useMutation({
@@ -32,28 +24,11 @@ export function WorkflowsPage() {
     },
   })
 
-  const deleteMergeMutation = useMutation({
-    mutationFn: mergeWorkflowApi.delete,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['merge-workflows'] })
-    },
-  })
-
   const handleDelete = (id: string, name: string) => {
     if (confirm(`Are you sure you want to delete "${name}"?`)) {
       deleteMutation.mutate(id)
     }
   }
-
-  const handleDeleteMerge = (id: string, name: string) => {
-    if (confirm(`Are you sure you want to delete "${name}"?`)) {
-      deleteMergeMutation.mutate(id)
-    }
-  }
-
-  const isLoading = isLoadingWorkflows || isLoadingMerge
-  const error = workflowsError || mergeError
-  const hasNoWorkflows = (!workflows || workflows.length === 0) && (!mergeWorkflows || mergeWorkflows.length === 0)
 
   if (isLoading) {
     return (
@@ -73,6 +48,8 @@ export function WorkflowsPage() {
     )
   }
 
+  const hasNoWorkflows = !workflows || workflows.length === 0
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -80,23 +57,15 @@ export function WorkflowsPage() {
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Workflows</h1>
           <p className="text-slate-500 mt-1">
-            Create and manage your data transformation workflows
+            Create and manage your data processing workflows
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Link to="/merge/new">
-            <Button variant="secondary">
-              <Combine className="w-4 h-4" />
-              Merge Files
-            </Button>
-          </Link>
-          <Link to="/workflows/new">
-            <Button>
-              <Plus className="w-4 h-4" />
-              Create Workflow
-            </Button>
-          </Link>
-        </div>
+        <Link to="/workflows/new">
+          <Button>
+            <Plus className="w-4 h-4" />
+            Create Workflow
+          </Button>
+        </Link>
       </div>
 
       {/* Workflow list */}
@@ -105,107 +74,27 @@ export function WorkflowsPage() {
           <EmptyState
             icon={<Workflow className="w-6 h-6 text-slate-400" />}
             title="No workflows yet"
-            description="Create your first workflow to start automating your Excel data transformations."
+            description="Create your first workflow to start automating your Excel data processing."
             action={
-              <div className="flex items-center gap-3">
-                <Link to="/merge/new">
-                  <Button variant="secondary">
-                    <Combine className="w-4 h-4" />
-                    Merge Files
-                  </Button>
-                </Link>
-                <Link to="/workflows/new">
-                  <Button>
-                    <Plus className="w-4 h-4" />
-                    Create Workflow
-                  </Button>
-                </Link>
-              </div>
+              <Link to="/workflows/new">
+                <Button>
+                  <Plus className="w-4 h-4" />
+                  Create Workflow
+                </Button>
+              </Link>
             }
           />
         </Card>
       ) : (
-        <div className="space-y-6">
-          {/* Merge Workflows */}
-          {mergeWorkflows && mergeWorkflows.length > 0 && (
-            <div className="space-y-3">
-              <h2 className="text-sm font-medium text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                <Combine className="w-4 h-4" />
-                Merge Workflows
-              </h2>
-              <div className="grid gap-3">
-                {mergeWorkflows.map((workflow) => (
-                  <MergeWorkflowCard
-                    key={workflow.id}
-                    workflow={workflow}
-                    onDelete={() => handleDeleteMerge(workflow.id, workflow.name)}
-                    isDeleting={deleteMergeMutation.isPending}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Regular Workflows */}
-          {workflows && workflows.length > 0 && (
-            <div className="space-y-3">
-              <h2 className="text-sm font-medium text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                <Workflow className="w-4 h-4" />
-                Transform Workflows
-              </h2>
-              <div className="grid gap-4">
-                {workflows.map((workflow) => (
-                  <Card
-                    key={workflow.id}
-                    className="flex items-center justify-between hover:border-slate-300 transition-colors"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-1">
-                        <h3 className="text-lg font-medium text-slate-900">
-                          {workflow.name}
-                        </h3>
-                        <Badge>
-                          {workflow.steps.length} step{workflow.steps.length !== 1 ? 's' : ''}
-                        </Badge>
-                      </div>
-                      {workflow.description && (
-                        <p className="text-sm text-slate-500 mb-2">
-                          {workflow.description}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-4 text-sm text-slate-400">
-                        <span>Key: {workflow.sourceConfig?.keyColumn || 'Not set'}</span>
-                        <span>Updated {formatRelativeTime(workflow.updatedAt)}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Link to={`/workflows/${workflow.id}/run`}>
-                        <Button variant="secondary" size="sm">
-                          <Play className="w-4 h-4" />
-                          Run
-                        </Button>
-                      </Link>
-                      <Link to={`/workflows/${workflow.id}`}>
-                        <Button variant="ghost" size="sm">
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                      </Link>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(workflow.id, workflow.name)}
-                        disabled={deleteMutation.isPending}
-                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
+        <div className="grid gap-3">
+          {workflows.map((workflow) => (
+            <WorkflowCard
+              key={workflow.id}
+              workflow={workflow}
+              onDelete={() => handleDelete(workflow.id, workflow.name)}
+              isDeleting={deleteMutation.isPending}
+            />
+          ))}
         </div>
       )}
     </div>

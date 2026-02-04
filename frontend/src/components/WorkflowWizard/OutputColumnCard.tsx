@@ -6,7 +6,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { cn } from '../../lib/utils'
 import { Button } from '../ui/Button'
 import { getFileColor } from '../../lib/colors'
-import type { OutputColumn, FileDefinition } from '../../types/merge'
+import type { OutputColumn, FileDefinition } from '../../types'
 
 interface OutputColumnCardProps {
   column: OutputColumn

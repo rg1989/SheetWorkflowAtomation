@@ -1,119 +1,240 @@
-// Workflow types
-export type ConditionOperator =
-  | 'equals'
-  | 'notEquals'
-  | 'contains'
-  | 'notContains'
-  | 'startsWith'
-  | 'endsWith'
-  | 'exists'
-  | 'isEmpty'
-  | 'greaterThan'
-  | 'lessThan'
-  | 'greaterThanOrEqual'
-  | 'lessThanOrEqual'
+/**
+ * Core types for the Sheet Workflow Automation application.
+ */
 
-export type ActionType =
-  | 'setValue'
-  | 'increment'
-  | 'decrement'
-  | 'copyFrom'
-  | 'formula'
-  | 'flag'
-  | 'clear'
+// ============================================================================
+// File and Column Types
+// ============================================================================
 
-export interface Condition {
-  id: string
-  column: string
-  operator: ConditionOperator
-  value?: string | number
-}
-
-export interface Action {
-  id: string
-  type: ActionType
-  targetColumn: string
-  sourceColumn?: string
-  value?: string | number
-  formula?: string
-}
-
-export interface WorkflowStep {
-  id: string
+export interface ColumnInfo {
   name: string
-  conditions: Condition[]
-  actions: Action[]
+  type: 'text' | 'number' | 'date' | 'integer' | 'boolean'
+  sampleValues: (string | number | null)[]
 }
 
-export interface SourceConfig {
-  type: 'inventory' | 'sales' | 'custom'
-  keyColumn: string
+export interface FileParseResult {
+  filename: string
+  rowCount: number
+  columns: ColumnInfo[]
+  sampleData?: Record<string, unknown>[]
+  sheetName?: string
+  availableSheets?: string[]
+  headerRow?: number
 }
 
+/**
+ * A file definition within a workflow
+ */
+export interface FileDefinition {
+  id: string
+  name: string // User-friendly name (e.g., "Sales Data")
+  filename: string // Original filename
+  colorIndex: number // 0-4 for predefined colors
+  columns: ColumnInfo[] // Detected columns from the file
+  sampleData?: Record<string, unknown>[] // First few rows for preview
+  sheetName?: string // Selected sheet name (for multi-sheet Excel files)
+  availableSheets?: string[] // All available sheets in the file
+  originalFile?: File // Keep reference to original file for re-parsing
+  headerRow?: number // Which row contains headers (1-indexed, default: 1)
+}
+
+// ============================================================================
+// Key Column and Join Configuration
+// ============================================================================
+
+/**
+ * Configuration for the key column used to match rows across files.
+ * Maps each file ID to its key column name (allows different column names per file).
+ */
+export interface KeyColumnConfig {
+  // Map of fileId -> column name for matching
+  // e.g., { "file1": "Name", "file2": "Item Name" }
+  mappings: Record<string, string>
+}
+
+/**
+ * Types of joins supported for merging tables.
+ * - inner: Only rows with matching keys in ALL files
+ * - left: All rows from primary file, matching from others (most common)
+ * - right: All rows from last file, matching from others
+ * - full: All rows from ALL files (union of keys)
+ */
+export type JoinType = 'inner' | 'left' | 'right' | 'full'
+
+/**
+ * Configuration for how tables should be joined.
+ */
+export interface JoinConfig {
+  joinType: JoinType
+  primaryFileId: string // Which file to keep all rows from (for LEFT join)
+}
+
+/**
+ * Metadata about each join type for UI display
+ */
+export const JOIN_TYPE_INFO: Record<
+  JoinType,
+  { label: string; description: string; icon: string }
+> = {
+  left: {
+    label: 'Keep All Primary Rows',
+    description: 'Keep all rows from the primary file. Other files fill in matching data.',
+    icon: 'arrow-left',
+  },
+  inner: {
+    label: 'Only Matching Rows',
+    description: 'Only include rows that have matching keys in ALL files.',
+    icon: 'git-merge',
+  },
+  full: {
+    label: 'Keep All Rows',
+    description: 'Include all rows from all files, even if some have no matches.',
+    icon: 'maximize-2',
+  },
+  right: {
+    label: 'Keep All Secondary Rows',
+    description: 'Keep all rows from the last file. Primary file fills in matching data.',
+    icon: 'arrow-right',
+  },
+}
+
+// ============================================================================
+// Output Column Configuration
+// ============================================================================
+
+/**
+ * A part of a concatenation - either a column reference or a literal string
+ */
+export type ConcatPart =
+  | { type: 'column'; fileId: string; column: string }
+  | { type: 'literal'; value: string }
+
+/**
+ * An operand in a math operation - either a column or a number
+ */
+export interface MathOperand {
+  type: 'column' | 'literal'
+  fileId?: string
+  column?: string
+  value?: number
+}
+
+/**
+ * The source of data for an output column
+ */
+export type ColumnSource =
+  | { type: 'direct'; fileId: string; column: string }
+  | { type: 'concat'; parts: ConcatPart[]; separator?: string }
+  | {
+      type: 'math'
+      operation: 'add' | 'subtract' | 'multiply' | 'divide'
+      operands: MathOperand[]
+    }
+  | { type: 'custom'; defaultValue: string }
+
+/**
+ * An output column in the result
+ */
+export interface OutputColumn {
+  id: string
+  name: string // Output column name
+  source: ColumnSource // Where the data comes from
+  order: number // Position in the output (for drag-drop reordering)
+}
+
+// ============================================================================
+// Workflow Types
+// ============================================================================
+
+/**
+ * A workflow definition
+ */
 export interface Workflow {
   id: string
   name: string
   description?: string
-  sourceConfig: SourceConfig
-  steps: WorkflowStep[]
+  files: FileDefinition[]
+  keyColumn?: KeyColumnConfig
+  joinConfig?: JoinConfig
+  outputColumns: OutputColumn[]
   createdAt: string
   updatedAt: string
 }
 
+/**
+ * Schema for creating a workflow
+ */
 export interface WorkflowCreate {
   name: string
   description?: string
-  sourceConfig: SourceConfig
-  steps: WorkflowStep[]
+  files: Omit<FileDefinition, 'sampleData'>[]
+  keyColumn?: KeyColumnConfig
+  joinConfig?: JoinConfig
+  outputColumns: OutputColumn[]
 }
 
-// Diff types
-export type ChangeType = 'added' | 'removed' | 'modified' | 'unchanged'
-
-export interface CellChange {
-  row: number
-  column: string
-  keyValue: string
-  oldValue: string | number | null
-  newValue: string | number | null
-  changeType: ChangeType
-  stepId?: string
-  stepName?: string
+/**
+ * Schema for updating a workflow
+ */
+export interface WorkflowUpdate {
+  name?: string
+  description?: string
+  files?: Omit<FileDefinition, 'sampleData'>[]
+  keyColumn?: KeyColumnConfig
+  joinConfig?: JoinConfig
+  outputColumns?: OutputColumn[]
 }
 
-export interface RowChange {
-  rowIndex: number
-  keyValue: string
-  cells: CellChange[]
-  hasWarning: boolean
-  warningMessage?: string
+// ============================================================================
+// Wizard State
+// ============================================================================
+
+/**
+ * Wizard state for creating a workflow
+ */
+export interface WizardState {
+  currentStep: number
+  files: FileDefinition[]
+  keyColumn?: KeyColumnConfig
+  joinConfig?: JoinConfig
+  outputColumns: OutputColumn[]
+  workflowName: string
+  workflowDescription: string
 }
 
-export interface DiffSummary {
-  rowsAffected: number
-  cellsModified: number
-  totalRows: number
-  warnings: number
-  errors: number
-}
+/**
+ * Available wizard steps
+ */
+export type WizardStep = 'files' | 'key-column' | 'output-columns' | 'preview'
 
-export interface Warning {
-  type: string
-  message: string
-  row?: number
-  column?: string
-}
+export const WIZARD_STEPS: { id: WizardStep; title: string; description: string }[] = [
+  {
+    id: 'files',
+    title: 'Upload Files',
+    description: 'Add the files you want to combine',
+  },
+  {
+    id: 'key-column',
+    title: 'Match Rows',
+    description: 'Select how to match rows across files',
+  },
+  {
+    id: 'output-columns',
+    title: 'Define Output',
+    description: 'Configure the columns in your result',
+  },
+  {
+    id: 'preview',
+    title: 'Review & Save',
+    description: 'Preview and save your workflow',
+  },
+]
 
-export interface DiffResult {
-  summary: DiffSummary
-  changes: RowChange[]
-  warnings: Warning[]
-  columns: string[]
-  keyColumn: string
-}
+// ============================================================================
+// Run Types
+// ============================================================================
 
-// Run types
-export type RunStatus = 'preview' | 'approved' | 'completed' | 'failed'
+export type RunStatus = 'preview' | 'completed' | 'failed'
 
 export interface Run {
   id: string
@@ -125,26 +246,11 @@ export interface Run {
   outputPdf?: string
 }
 
-export interface RunPreview {
+export interface RunResult {
+  success: boolean
   runId: string
-  workflowId: string
-  diff: DiffResult
-  status: RunStatus
-}
-
-// File types
-export interface ColumnInfo {
-  name: string
-  type: 'text' | 'number' | 'date' | 'integer' | 'boolean'
-  sampleValues: (string | number)[]
-}
-
-export interface FileParseResult {
-  filename: string
   rowCount: number
-  columns: ColumnInfo[]
-  sampleData?: Record<string, unknown>[]
-  sheetName?: string // The sheet that was parsed
-  availableSheets?: string[] // All sheets in the file
-  headerRow?: number // Which row was used as headers (1-indexed)
+  columns: string[]
+  previewData: Record<string, unknown>[]
+  warnings: string[]
 }

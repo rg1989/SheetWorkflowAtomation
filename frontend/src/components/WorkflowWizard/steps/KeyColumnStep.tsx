@@ -1,25 +1,58 @@
 import { motion } from 'framer-motion'
-import { Key, Info, Check, Link2 } from 'lucide-react'
+import { Key, Info, Check, Link2, ArrowLeft, GitMerge, Maximize2, ArrowRight, Star } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { getFileColor } from '../../../lib/colors'
 import { FileLegend } from '../FileLegend'
-import type { FileDefinition, KeyColumnConfig } from '../../../types/merge'
+import type { FileDefinition, KeyColumnConfig, JoinConfig, JoinType } from '../../../types'
+import { JOIN_TYPE_INFO } from '../../../types'
 
 interface KeyColumnStepProps {
   files: FileDefinition[]
   keyColumn?: KeyColumnConfig
   onKeyColumnChange: (keyColumn: KeyColumnConfig | undefined) => void
+  joinConfig?: JoinConfig
+  onJoinConfigChange: (joinConfig: JoinConfig) => void
+}
+
+// Map join types to icons
+const JOIN_TYPE_ICONS: Record<JoinType, React.ReactNode> = {
+  left: <ArrowLeft className="w-4 h-4" />,
+  inner: <GitMerge className="w-4 h-4" />,
+  full: <Maximize2 className="w-4 h-4" />,
+  right: <ArrowRight className="w-4 h-4" />,
 }
 
 export function KeyColumnStep({
   files,
   keyColumn,
   onKeyColumnChange,
+  joinConfig,
+  onJoinConfigChange,
 }: KeyColumnStepProps) {
   const mappings = keyColumn?.mappings || {}
+  
+  // Get current join config with defaults
+  const currentJoinType: JoinType = joinConfig?.joinType || 'left'
+  const currentPrimaryFileId = joinConfig?.primaryFileId || files[0]?.id || ''
 
   // Check if all files have a key column selected
   const allFilesHaveKey = files.every((f) => mappings[f.id])
+  
+  // Handler for join type change
+  const handleJoinTypeChange = (newJoinType: JoinType) => {
+    onJoinConfigChange({
+      joinType: newJoinType,
+      primaryFileId: currentPrimaryFileId,
+    })
+  }
+  
+  // Handler for primary file change
+  const handlePrimaryFileChange = (fileId: string) => {
+    onJoinConfigChange({
+      joinType: currentJoinType,
+      primaryFileId: fileId,
+    })
+  }
 
   // Find columns that exist in all files with the same name (for quick select)
   const allColumnNames = files.map((f) => f.columns.map((c) => c.name))
@@ -49,7 +82,7 @@ export function KeyColumnStep({
         </h2>
         <p className="text-slate-500">
           Choose a column from each file that contains matching values.
-          Rows with the same value in these columns will be merged together.
+          Rows with the same value in these columns will be combined together.
         </p>
       </div>
 
@@ -222,6 +255,129 @@ export function KeyColumnStep({
               )
             })}
           </div>
+        </motion.div>
+      )}
+
+      {/* Join Type Selection - shown when key columns are configured */}
+      {allFilesHaveKey && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="space-y-4"
+        >
+          <div className="border-t border-slate-200 pt-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">
+              How should rows be combined?
+            </h3>
+            <p className="text-sm text-slate-500 mb-4">
+              Choose how to handle rows that don't have matches in all files.
+            </p>
+
+            {/* Join type options */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(['left', 'inner', 'full'] as JoinType[]).map((joinType) => {
+                const info = JOIN_TYPE_INFO[joinType]
+                const isSelected = currentJoinType === joinType
+                
+                return (
+                  <motion.button
+                    key={joinType}
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    onClick={() => handleJoinTypeChange(joinType)}
+                    className={cn(
+                      'p-4 rounded-lg border-2 text-left transition-all',
+                      isSelected
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    )}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={cn(
+                        'p-1.5 rounded',
+                        isSelected ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600'
+                      )}>
+                        {JOIN_TYPE_ICONS[joinType]}
+                      </span>
+                      <span className={cn(
+                        'font-medium',
+                        isSelected ? 'text-blue-900' : 'text-slate-700'
+                      )}>
+                        {info.label}
+                      </span>
+                      {isSelected && (
+                        <Check className="w-4 h-4 text-blue-600 ml-auto" />
+                      )}
+                    </div>
+                    <p className={cn(
+                      'text-sm ml-9',
+                      isSelected ? 'text-blue-700' : 'text-slate-500'
+                    )}>
+                      {info.description}
+                    </p>
+                  </motion.button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Primary file selection - only show for left/right joins */}
+          {(currentJoinType === 'left' || currentJoinType === 'right') && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="p-4 bg-slate-50 rounded-lg border border-slate-200"
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <Star className="w-4 h-4 text-amber-500" />
+                <span className="font-medium text-slate-700">
+                  Select Primary File
+                </span>
+              </div>
+              <p className="text-sm text-slate-500 mb-3">
+                All rows from this file will be kept in the result, even if they don't match other files.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {files.map((file) => {
+                  const color = getFileColor(file.colorIndex)
+                  const isSelected = currentPrimaryFileId === file.id
+                  
+                  return (
+                    <motion.button
+                      key={file.id}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => handlePrimaryFileChange(file.id)}
+                      className={cn(
+                        'px-3 py-2 rounded-lg border-2 transition-all flex items-center gap-2',
+                        isSelected
+                          ? cn(color.borderLight, color.bgLight, 'border-2')
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      )}
+                    >
+                      <div className={cn(
+                        'w-5 h-5 rounded flex items-center justify-center text-xs font-bold',
+                        isSelected ? color.bg : 'bg-slate-200',
+                        isSelected ? 'text-white' : 'text-slate-600'
+                      )}>
+                        {files.indexOf(file) + 1}
+                      </div>
+                      <span className={cn(
+                        'font-medium',
+                        isSelected ? color.textDark : 'text-slate-700'
+                      )}>
+                        {file.name}
+                      </span>
+                      {isSelected && (
+                        <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                      )}
+                    </motion.button>
+                  )
+                })}
+              </div>
+            </motion.div>
+          )}
         </motion.div>
       )}
     </div>

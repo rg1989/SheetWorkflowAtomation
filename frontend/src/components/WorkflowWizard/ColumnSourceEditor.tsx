@@ -6,8 +6,7 @@ import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
 import { getFileColor } from '../../lib/colors'
-import type { FileDefinition } from '../../types/merge'
-import type { ColumnSource, ConcatPart, MathOperand } from '../../types/merge'
+import type { FileDefinition, ColumnSource, ConcatPart, MathOperand } from '../../types'
 
 interface ColumnSourceEditorProps {
   files: FileDefinition[]

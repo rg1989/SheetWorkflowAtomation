@@ -1,4 +1,4 @@
-export { MergeWizard } from './MergeWizard'
+export { WorkflowWizard } from './WorkflowWizard'
 export { WizardProgress } from './WizardProgress'
 export { FileCard } from './FileCard'
 export { FilePreviewTable } from './FilePreviewTable'

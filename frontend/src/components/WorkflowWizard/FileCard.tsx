@@ -6,7 +6,7 @@ import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { FilePreviewTable } from './FilePreviewTable'
 import { getFileColor } from '../../lib/colors'
-import type { FileDefinition } from '../../types/merge'
+import type { FileDefinition } from '../../types'
 
 interface FileCardProps {
   file: FileDefinition

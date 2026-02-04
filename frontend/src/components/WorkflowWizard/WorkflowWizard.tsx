@@ -14,14 +14,15 @@ import { getNextColorIndex, MAX_FILES } from '../../lib/colors'
 import type {
   FileDefinition,
   KeyColumnConfig,
+  JoinConfig,
   OutputColumn,
-  MergeWizardState,
-} from '../../types/merge'
-import type { ColumnInfo } from '../../types'
+  WizardState,
+  ColumnInfo,
+} from '../../types'
 
-interface MergeWizardProps {
-  initialState?: Partial<MergeWizardState>
-  onSave?: (state: MergeWizardState) => Promise<void>
+interface WorkflowWizardProps {
+  initialState?: Partial<WizardState>
+  onSave?: (state: WizardState) => Promise<void>
   isEditMode?: boolean
 }
 
@@ -40,7 +41,7 @@ const slideVariants = {
   }),
 }
 
-export function MergeWizard({ initialState, onSave, isEditMode = false }: MergeWizardProps) {
+export function WorkflowWizard({ initialState, onSave, isEditMode = false }: WorkflowWizardProps) {
   const navigate = useNavigate()
   const [currentStep, setCurrentStep] = useState(initialState?.currentStep ?? 0)
   const [direction, setDirection] = useState(0)
@@ -51,6 +52,9 @@ export function MergeWizard({ initialState, onSave, isEditMode = false }: MergeW
   const [files, setFiles] = useState<FileDefinition[]>(initialState?.files ?? [])
   const [keyColumn, setKeyColumn] = useState<KeyColumnConfig | undefined>(
     initialState?.keyColumn
+  )
+  const [joinConfig, setJoinConfig] = useState<JoinConfig | undefined>(
+    initialState?.joinConfig
   )
   const [outputColumns, setOutputColumns] = useState<OutputColumn[]>(
     initialState?.outputColumns ?? []
@@ -131,6 +135,15 @@ export function MergeWizard({ initialState, onSave, isEditMode = false }: MergeW
       delete newMappings[fileId]
       // If no mappings left, clear keyColumn entirely
       return Object.keys(newMappings).length > 0 ? { mappings: newMappings } : undefined
+    })
+    // Update joinConfig if primary file is removed
+    setJoinConfig((prev) => {
+      if (!prev) return prev
+      if (prev.primaryFileId === fileId) {
+        // Reset to first remaining file
+        return undefined // Will be re-initialized when needed
+      }
+      return prev
     })
   }, [])
 
@@ -278,10 +291,17 @@ export function MergeWizard({ initialState, onSave, isEditMode = false }: MergeW
     setError(null)
 
     try {
-      const state: MergeWizardState = {
+      // Ensure joinConfig has a default if not set
+      const effectiveJoinConfig: JoinConfig = joinConfig ?? {
+        joinType: 'left',
+        primaryFileId: files[0]?.id ?? '',
+      }
+      
+      const state: WizardState = {
         currentStep,
         files,
         keyColumn,
+        joinConfig: effectiveJoinConfig,
         outputColumns,
         workflowName,
         workflowDescription,
@@ -301,6 +321,7 @@ export function MergeWizard({ initialState, onSave, isEditMode = false }: MergeW
     currentStep,
     files,
     keyColumn,
+    joinConfig,
     outputColumns,
     workflowName,
     workflowDescription,
@@ -327,6 +348,8 @@ export function MergeWizard({ initialState, onSave, isEditMode = false }: MergeW
             files={files}
             keyColumn={keyColumn}
             onKeyColumnChange={setKeyColumn}
+            joinConfig={joinConfig}
+            onJoinConfigChange={setJoinConfig}
           />
         )
       case 2:
@@ -342,6 +365,7 @@ export function MergeWizard({ initialState, onSave, isEditMode = false }: MergeW
           <PreviewStep
             files={files}
             outputColumns={outputColumns}
+            joinConfig={joinConfig}
             workflowName={workflowName}
             workflowDescription={workflowDescription}
             onWorkflowNameChange={setWorkflowName}
@@ -362,7 +386,7 @@ export function MergeWizard({ initialState, onSave, isEditMode = false }: MergeW
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <h1 className="text-2xl font-semibold text-slate-900">
-            {isEditMode ? 'Edit Merge Workflow' : 'Create Merge Workflow'}
+            {isEditMode ? 'Edit Workflow' : 'Create Workflow'}
           </h1>
         </div>
       </div>

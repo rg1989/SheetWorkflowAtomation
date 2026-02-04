@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import { cn } from '../../lib/utils'
 import { getFileColor } from '../../lib/colors'
-import type { OutputColumn, FileDefinition } from '../../types/merge'
+import type { OutputColumn, FileDefinition } from '../../types'
 
 interface OutputPreviewProps {
   files: FileDefinition[]
