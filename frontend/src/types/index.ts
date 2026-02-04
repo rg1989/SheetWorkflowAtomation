@@ -254,3 +254,57 @@ export interface RunResult {
   previewData: Record<string, unknown>[]
   warnings: string[]
 }
+
+// ============================================================================
+// Diff Preview Types
+// ============================================================================
+
+/**
+ * A warning from the workflow execution
+ */
+export interface Warning {
+  message: string
+  row?: number
+  column?: string
+  severity?: 'info' | 'warning' | 'error'
+}
+
+/**
+ * A single cell change in a diff
+ */
+export interface CellChange {
+  column: string
+  oldValue: string | number | null
+  newValue: string | number | null
+  stepName?: string
+}
+
+/**
+ * A row change containing multiple cell changes
+ */
+export interface RowChange {
+  keyValue: string
+  cells: CellChange[]
+  hasWarning: boolean
+  warningMessage?: string
+}
+
+/**
+ * Summary statistics for a diff
+ */
+export interface DiffSummary {
+  rowsAffected: number
+  cellsModified: number
+  warnings: number
+  errors: number
+}
+
+/**
+ * The complete diff result from a workflow preview
+ */
+export interface DiffResult {
+  keyColumn: string
+  changes: RowChange[]
+  warnings: Warning[]
+  summary: DiffSummary
+}

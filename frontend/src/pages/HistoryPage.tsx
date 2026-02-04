@@ -7,7 +7,7 @@ import { EmptyState } from '../components/ui/EmptyState'
 import { Spinner } from '../components/ui/Spinner'
 import { runApi, workflowApi } from '../lib/api'
 import { formatDate, formatRelativeTime } from '../lib/utils'
-import type { Run, RunStatus } from '../types'
+import type { RunStatus } from '../types'
 
 const statusConfig: Record<RunStatus, { label: string; variant: 'default' | 'success' | 'warning' | 'error' | 'info'; icon: typeof CheckCircle }> = {
   preview: { label: 'Preview', variant: 'info', icon: Eye },

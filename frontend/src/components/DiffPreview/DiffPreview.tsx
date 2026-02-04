@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { Filter, AlertTriangle } from 'lucide-react'
-import { Card, CardHeader, CardTitle } from '../ui/Card'
+import { Card, CardTitle } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { Select } from '../ui/Select'
-import { Badge } from '../ui/Badge'
 import { DiffSummary } from './DiffSummary'
 import { RowDiff } from './RowDiff'
-import type { DiffResult, Warning } from '../../types'
+import type { DiffResult } from '../../types'
 
 interface DiffPreviewProps {
   diff: DiffResult

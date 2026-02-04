@@ -10,7 +10,7 @@ import { Badge } from '../components/ui/Badge'
 import { workflowApi, fileApi } from '../lib/api'
 import { cn } from '../lib/utils'
 import { getFileColor } from '../lib/colors'
-import type { FileDefinition, ColumnInfo, RunResult } from '../types'
+import type { FileDefinition, ColumnInfo } from '../types'
 
 interface UploadedFileState {
   file: File
