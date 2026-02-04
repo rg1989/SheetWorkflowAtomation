@@ -69,9 +69,10 @@ export function RunWorkflowPage() {
   const handleFileUpload = useCallback(async (expectedFile: FileDefinition, file: File) => {
     // First, parse the file to get available sheets
     try {
-      // Use the expected header row from workflow if available, default to 1
+      // Use the expected sheet and header row from workflow if available
+      const expectedSheet = expectedFile.sheetName
       const expectedHeaderRow = expectedFile.headerRow ?? 1
-      const parseResult = await fileApi.parseColumns(file, undefined, expectedHeaderRow)
+      const parseResult = await fileApi.parseColumns(file, expectedSheet, expectedHeaderRow)
       
       const hasMultipleSheets = (parseResult.availableSheets?.length ?? 0) > 1
       const expectedColumns = expectedFile.columns?.map(c => c.name) || []

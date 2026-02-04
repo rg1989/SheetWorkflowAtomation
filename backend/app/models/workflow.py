@@ -35,6 +35,8 @@ class FileDefinition(BaseModel):
     filename: str  # Original filename
     colorIndex: int  # 0-4 for predefined colors
     columns: List[ColumnInfo] = Field(default_factory=list)
+    sheetName: Optional[str] = None  # Selected sheet name for multi-sheet files
+    headerRow: Optional[int] = None  # Which row contains headers (1-indexed)
 
 
 class KeyColumnConfig(BaseModel):
