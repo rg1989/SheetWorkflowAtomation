@@ -223,10 +223,10 @@ function FileSlotCard({
 
               {/* Tab and Header Row selectors */}
               <div className="flex flex-wrap items-center gap-3 mt-2">
-                {/* Tab selector for Google Sheets */}
+                {/* Sheet selector for Google Sheets */}
                 {driveFile.availableTabs && driveFile.availableTabs.length > 1 && (
                   <div className="flex items-center gap-2">
-                    <label className="text-xs text-slate-500">Tab:</label>
+                    <label className="text-xs text-slate-500">Sheet:</label>
                     <div className="relative">
                       <select
                         value={driveFile.selectedTab || ''}
