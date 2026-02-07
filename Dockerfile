@@ -32,4 +32,6 @@ ENV PORT=8000
 EXPOSE 8000
 
 # Run FastAPI; use 0.0.0.0 so it's reachable from outside
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --chdir backend"]
+# --proxy-headers + --forwarded-allow-ips='*' so Railway's reverse proxy
+# forwards the correct scheme (https) and client IP.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --proxy-headers --forwarded-allow-ips='*' --chdir backend"]

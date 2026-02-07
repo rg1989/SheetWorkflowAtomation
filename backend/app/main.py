@@ -62,8 +62,16 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Detect production (Railway sets RAILWAY_ENVIRONMENT or PORT; also check CORS_ORIGIN)
+_is_production = bool(os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("CORS_ORIGIN"))
+
 # Session for OAuth state and logged-in user (must be before CORS so session is available)
-app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SESSION_SECRET_KEY,
+    https_only=_is_production,       # cookies only over HTTPS in production
+    same_site="lax",                 # safe default for OAuth redirects
+)
 
 # CORS: include deployed origin from env so cookie works when frontend is same host
 _cors_origins = [
@@ -74,6 +82,9 @@ _cors_origins = [
 ]
 if os.environ.get("CORS_ORIGIN"):
     _cors_origins.append(os.environ["CORS_ORIGIN"].rstrip("/"))
+# Also auto-detect Railway public domain
+if os.environ.get("RAILWAY_PUBLIC_DOMAIN"):
+    _cors_origins.append(f"https://{os.environ['RAILWAY_PUBLIC_DOMAIN']}")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
