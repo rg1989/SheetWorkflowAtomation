@@ -27,9 +27,9 @@ COPY --from=frontend /app/frontend/dist/. backend/app/static/
 ENV SHEET_WORKFLOW_DATA_DIR=/app/data
 RUN mkdir -p /app/data
 
-# Railway (and most PaaS) set PORT at runtime
-ENV PORT=8000
-EXPOSE 8000
+# Railway injects PORT=8080 at runtime; fall back to 8080 for local Docker too
+ENV PORT=8080
+EXPOSE 8080
 
 # Run FastAPI; use 0.0.0.0 so it's reachable from outside
 # --proxy-headers + --forwarded-allow-ips='*' so Railway's reverse proxy

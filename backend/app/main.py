@@ -62,8 +62,12 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Detect production (Railway sets RAILWAY_ENVIRONMENT or PORT; also check CORS_ORIGIN)
-_is_production = bool(os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("CORS_ORIGIN"))
+# Detect production – Railway provides RAILWAY_ENVIRONMENT_NAME automatically
+_is_production = bool(
+    os.environ.get("RAILWAY_ENVIRONMENT_NAME")
+    or os.environ.get("RAILWAY_PUBLIC_DOMAIN")
+    or os.environ.get("CORS_ORIGIN")
+)
 
 # Session for OAuth state and logged-in user (must be before CORS so session is available)
 app.add_middleware(
