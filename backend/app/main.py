@@ -20,7 +20,7 @@ from fastapi.responses import FileResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.db.database import create_tables
-from app.api import workflows, runs, files
+from app.api import workflows, runs, files, drive
 from app.auth import router as auth_router
 from app.auth.config import SESSION_SECRET_KEY
 
@@ -121,6 +121,7 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(workflows.router, prefix="/api/workflows", tags=["workflows"])
 app.include_router(runs.router, prefix="/api/runs", tags=["runs"])
 app.include_router(files.router, prefix="/api/files", tags=["files"])
+app.include_router(drive.router, prefix="/api/drive", tags=["drive"])
 
 
 @app.get("/api/health")
