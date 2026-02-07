@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Backend Drive Endpoints** - REST API exposing Drive operations
 - [ ] **Phase 4: Frontend Picker UI** - Google Picker integration for Drive file selection
 - [ ] **Phase 5: Workflow Integration** - Drive files as workflow inputs with mixed sources
-- [ ] **Phase 6: Export to Drive** - Push workflow results back to Drive as Google Sheets
+- [x] **Phase 6: Export to Drive** - Push workflow results back to Drive as Google Sheets
 
 ## Phase Details
 
@@ -112,7 +112,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 06-01-PLAN.md -- Sheets write service functions + export REST endpoints for create/update
+- [x] 06-01-PLAN.md -- Sheets write service functions + export REST endpoints for create/update
 
 ## Progress
 
@@ -126,4 +126,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 3. Backend Drive Endpoints | 1/1 | Complete | 2026-02-07 |
 | 4. Frontend Picker UI | 0/2 | Not started | - |
 | 5. Workflow Integration | 0/TBD | Not started | - |
-| 6. Export to Drive | 0/1 | Not started | - |
+| 6. Export to Drive | 1/1 | Complete | 2026-02-07 |
