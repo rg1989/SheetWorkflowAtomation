@@ -34,6 +34,7 @@ class DownloadRequest(BaseModel):
     """Request model for Drive file download."""
     file_id: str = Field(description="Google Drive file ID")
     header_row: Optional[int] = Field(None, description="Which row contains headers (1-indexed, default: 1)")
+    sheet_name: Optional[str] = Field(None, description="Sheet name to read (for multi-sheet Excel files)")
 
 
 class SheetsReadRequest(BaseModel):
@@ -156,6 +157,7 @@ async def download_drive_file(
             request.file_id,
             mime_type=metadata["mimeType"],
             sheets_service=sheets_service,
+            sheet_name=request.sheet_name,
             header_row=header_row_param
         )
 
