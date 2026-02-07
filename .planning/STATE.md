@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Users can connect their Google Drive and seamlessly use Drive files as workflow inputs and push results back — eliminating the download/upload cycle entirely.
-**Current focus:** Phase 2 complete — Ready for Phase 3 (Backend Drive Endpoints)
+**Current focus:** Phase 3 in progress — Backend Drive Endpoints (plan 01 complete)
 
 ## Current Position
 
-Phase: 2 of 6 (Backend Drive Service)
-Plan: 02 of 2 in phase
+Phase: 3 of 6 (Backend Drive Endpoints)
+Plan: 01 of 1 in phase
 Status: Phase complete
-Last activity: 2026-02-07 — Completed 02-02-PLAN.md (Native Sheets API read)
+Last activity: 2026-02-07 — Completed 03-01-PLAN.md (REST API endpoints)
 
-Progress: [███░░░░░░░] 33%
+Progress: [████░░░░░░] 40%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
+- Total plans completed: 5
 - Average duration: 2 min
-- Total execution time: 0.13 hours
+- Total execution time: 0.17 hours
 
 **By Phase:**
 
@@ -29,12 +29,13 @@ Progress: [███░░░░░░░] 33%
 |-------|-------|-------|----------|
 | 01-token-management-foundation | 2/2 | 3 min | 1.5 min |
 | 02-backend-drive-service | 2/2 | 5 min | 2.5 min |
+| 03-backend-drive-endpoints | 1/1 | 2 min | 2.0 min |
 
 **Recent Trend:**
-- 01-01: 2 min (Token storage and encryption)
 - 01-02: 1 min (OAuth flow integration)
 - 02-01: 3 min (Drive service foundation)
 - 02-02: 2 min (Native Sheets API read)
+- 03-01: 2 min (REST API endpoints)
 
 *Updated after each plan completion*
 
@@ -66,6 +67,10 @@ Recent decisions affecting current work:
 - Default to first sheet tab when range_name not specified - 02-02
 - Add sheets_service as optional parameter to download_drive_file_to_df for backward compatibility - 02-02
 - Keep _export_google_sheet_to_df as fallback when Sheets service not available - 02-02
+- Return same DriveFileResponse shape for both /download and /read endpoints - simplifies frontend handling - 03-01
+- Extract _sanitize_sample_rows() helper to avoid NaN serialization duplication - 03-01
+- Use get_valid_access_token() in /token endpoint for automatic refresh before returning to Picker - 03-01
+- Include file metadata from get_drive_file_metadata() in both endpoints for SELECT-02 compliance - 03-01
 
 ### Pending Todos
 
@@ -80,7 +85,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-07 12:45:00 UTC
-Stopped at: Completed 02-02-PLAN.md (Native Sheets API read) - Phase 2 complete and verified
+Last session: 2026-02-07 11:15:53 UTC
+Stopped at: Completed 03-01-PLAN.md (REST API endpoints) - Phase 3 complete
 Resume file: None
-Next: Plan Phase 3 (Backend Drive Endpoints) when ready
+Next: Plan Phase 4 (Frontend Picker Integration) when ready
