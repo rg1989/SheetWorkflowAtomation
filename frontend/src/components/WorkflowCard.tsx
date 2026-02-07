@@ -74,7 +74,7 @@ export function WorkflowCard({ workflow, onDelete, isDeleting }: WorkflowCardPro
   }
 
   return (
-    <div className="border border-slate-200 rounded-lg hover:border-slate-300 transition-all hover:shadow-sm bg-white p-3">
+    <div className="border border-slate-200 rounded-lg hover:border-slate-300 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 bg-white p-3">
       {/* Top row: name, description, actions */}
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="min-w-0 flex-1">
@@ -181,7 +181,7 @@ export function WorkflowCard({ workflow, onDelete, isDeleting }: WorkflowCardPro
       {/* Expand/Collapse Run History toggle */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full mt-2 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-md transition-colors"
+        className="w-full mt-2 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-md transition-colors duration-200"
       >
         <History className="w-3.5 h-3.5" />
         Run History

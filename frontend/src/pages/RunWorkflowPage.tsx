@@ -81,12 +81,12 @@ function FileSlotCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.1 }}
       className={cn(
-        'border-2 rounded-lg p-4 transition-all',
+        'border-2 rounded-lg p-4 transition-all duration-200',
         isValidated
-          ? 'border-green-300 bg-green-50'
+          ? 'border-green-300 bg-green-50 hover:shadow-md'
           : hasError
           ? 'border-red-300 bg-red-50'
-          : cn(color.borderLight, color.bgLight)
+          : cn(color.borderLight, color.bgLight, 'hover:shadow-md')
       )}
     >
       <div className="flex items-start justify-between gap-4">

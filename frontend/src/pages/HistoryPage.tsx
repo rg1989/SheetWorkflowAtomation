@@ -171,10 +171,10 @@ export function HistoryPage() {
             const StatusIcon = status.icon
 
             return (
-              <Card key={run.id} className="flex items-center justify-between py-3">
+              <Card key={run.id} className="flex items-center justify-between py-3 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center justify-center w-9 h-9 bg-slate-100 rounded-lg">
-                    <FileSpreadsheet className="w-4 h-4 text-slate-600" />
+                  <div className="flex items-center justify-center w-9 h-9 bg-primary-100 rounded-lg">
+                    <FileSpreadsheet className="w-4 h-4 text-primary-600" />
                   </div>
 
                   <div>

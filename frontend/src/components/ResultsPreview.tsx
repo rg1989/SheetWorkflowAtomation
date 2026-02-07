@@ -73,7 +73,7 @@ export function ResultsPreview({
         </div>
       </CardHeader>
 
-      <div className="overflow-auto max-h-[70vh] w-full">
+      <div className="relative overflow-auto max-h-[70vh] w-full">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Spinner size="lg" />
@@ -84,15 +84,15 @@ export function ResultsPreview({
           </div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="sticky top-0 z-10 bg-slate-50">
-              <tr className="border-b border-slate-200">
-                <th className="sticky left-0 z-[5] bg-slate-50 border-r border-slate-200 px-3 py-2 text-left font-medium text-slate-400 text-xs font-mono whitespace-nowrap">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-gradient-to-r from-primary-600 to-primary-500">
+                <th className="sticky left-0 z-[5] bg-primary-700 border-r border-primary-400/30 px-3 py-2.5 text-left font-medium text-primary-100 text-xs font-mono whitespace-nowrap">
                   #
                 </th>
                 {columns.map((col) => (
                   <th
                     key={col}
-                    className="px-3 py-2 text-left font-medium text-slate-700 whitespace-nowrap"
+                    className="px-3 py-2.5 text-left font-medium text-white whitespace-nowrap"
                   >
                     {col}
                   </th>
@@ -104,17 +104,17 @@ export function ResultsPreview({
                 <tr
                   key={rowIdx}
                   className={cn(
-                    'border-b border-slate-100',
-                    rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
+                    'border-b border-slate-100 transition-colors duration-150 hover:bg-primary-50',
+                    rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50'
                   )}
                 >
-                  <td className="sticky left-0 z-[5] bg-inherit border-r border-slate-200 px-3 py-2 text-slate-400 text-xs font-mono whitespace-nowrap">
+                  <td className="sticky left-0 z-[5] bg-primary-50/60 border-r border-slate-200 px-3 py-2 text-primary-400 text-xs font-mono whitespace-nowrap">
                     {rowIdx + 1}
                   </td>
                   {columns.map((col) => (
                     <td
                       key={col}
-                      className="px-3 py-2 text-slate-600 whitespace-nowrap max-w-[200px] truncate"
+                      className="px-3 py-2 text-slate-700 whitespace-nowrap max-w-[200px] truncate"
                       title={String(row[col] ?? '')}
                     >
                       {row[col] != null ? String(row[col]) : '—'}
@@ -125,6 +125,8 @@ export function ResultsPreview({
             </tbody>
           </table>
         )}
+        {/* Bottom fade hint for scroll overflow */}
+        <div className="sticky bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none" />
       </div>
     </Card>
   )
