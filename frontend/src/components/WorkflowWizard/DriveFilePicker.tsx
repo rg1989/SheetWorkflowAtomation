@@ -72,13 +72,15 @@ export function DriveFilePicker({ onFileReady, onError, disabled }: DriveFilePic
     <button
       onClick={openPicker}
       disabled={disabled || isLoading}
-      className="flex flex-col items-center gap-3 p-6 border-2 border-slate-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full"
+      className="flex flex-col items-center gap-3 p-6 border-2 border-dashed border-slate-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed w-full h-full justify-center"
     >
-      {isLoading ? (
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-      ) : (
-        <Cloud className="w-8 h-8 text-blue-600" />
-      )}
+      <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
+        {isLoading ? (
+          <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+        ) : (
+          <Cloud className="w-6 h-6 text-blue-600" />
+        )}
+      </div>
       <div>
         <div className="font-medium text-slate-900">
           {isParsing ? 'Loading file...' : isPickerLoading ? 'Opening Drive...' : 'Select from Google Drive'}

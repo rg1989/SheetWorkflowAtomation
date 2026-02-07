@@ -351,9 +351,11 @@ export function FilesStep({
               ) : (
                 <button
                   onClick={loginWithDrive}
-                  className="flex flex-col items-center gap-3 p-6 border-2 border-slate-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors w-full h-full justify-center"
+                  className="flex flex-col items-center gap-3 p-6 border-2 border-dashed border-slate-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 w-full h-full justify-center"
                 >
-                  <Cloud className="w-8 h-8 text-slate-400" />
+                  <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
+                    <Cloud className="w-6 h-6 text-slate-400" />
+                  </div>
                   <div>
                     <div className="font-medium text-slate-900">Connect Google Drive</div>
                     <div className="text-sm text-slate-500">
