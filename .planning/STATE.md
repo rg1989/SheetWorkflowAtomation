@@ -103,6 +103,7 @@ Recent decisions affecting current work:
 - Replace Export button with "View in Google Sheets" link after successful export - quick-001
 - Backend Drive endpoints accept header_row parameter (1-indexed) for custom header row parsing - quick-001
 - FilesStep (workflow template editor) supports Drive file header row/tab changes by routing to driveApi based on file.source - quick-001 hotfix
+- Excel parser normalizes all column names to strings (handles int/float/tuple columns from custom header rows) - quick-001 hotfix
 
 ### Pending Todos
 
@@ -124,7 +125,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-07 17:59:00 UTC
-Stopped at: Completed quick task 001 hotfix — Fixed Drive file header row changes in FilesStep (workflow template editor)
+Last session: 2026-02-07 18:19:00 UTC
+Stopped at: Completed quick task 001 hotfix #2 — Fixed Excel parser to handle non-string column names from custom header rows
 Resume file: None
 Next: Ready for additional quick tasks or milestone audit
