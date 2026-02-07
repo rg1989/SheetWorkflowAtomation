@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 4 of 6 (Frontend Picker UI)
-Plan: 01 of 2 in phase
-Status: In progress
-Last activity: 2026-02-07 — Completed 04-01-PLAN.md (Frontend Picker Foundation)
+Plan: 02 of 2 in phase
+Status: Phase complete
+Last activity: 2026-02-07 — Completed 04-02-PLAN.md (FilesStep Drive Integration)
 
-Progress: [███████░░░] 70%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
-- Average duration: 2 min
-- Total execution time: 0.23 hours
+- Total plans completed: 8
+- Average duration: 8 min
+- Total execution time: 1.06 hours
 
 **By Phase:**
 
@@ -30,14 +30,14 @@ Progress: [███████░░░] 70%
 | 01-token-management-foundation | 2/2 | 3 min | 1.5 min |
 | 02-backend-drive-service | 2/2 | 5 min | 2.5 min |
 | 03-backend-drive-endpoints | 1/1 | 2 min | 2.0 min |
-| 04-frontend-picker-ui | 1/2 | 3 min | 3.0 min |
+| 04-frontend-picker-ui | 2/2 | 53 min | 26.5 min |
 | 06-export-to-drive | 1/1 | 2 min | 2.0 min |
 
 **Recent Trend:**
-- 02-02: 2 min (Native Sheets API read)
 - 03-01: 2 min (REST API endpoints)
 - 06-01: 2 min (Export to Drive)
 - 04-01: 3 min (Frontend Picker Foundation)
+- 04-02: 50 min (FilesStep Drive Integration)
 
 *Updated after each plan completion*
 
@@ -50,7 +50,7 @@ Recent decisions affecting current work:
 
 - Use Google Picker (not custom file browser) for familiar UX and less code to maintain
 - Expand existing OAuth scopes (not separate Drive auth) for single auth flow simplicity
-- Use drive.file scope (not full drive access) following principle of least privilege
+- ~~Use drive.file scope (not full drive access) following principle of least privilege~~ **UPDATED** - Use drive.readonly scope (not drive.file) because Picker shows all files but drive.file only grants access to app-created files - 04-02
 - Remember Drive refs as optional per-workflow checkbox for flexible use cases
 - Use PBKDF2HMAC with 480000 iterations for key derivation (not raw secret as Fernet key) - 01-01
 - Support TOKEN_ENCRYPTION_KEY env var with fallback to SESSION_SECRET_KEY for flexibility - 01-01
@@ -83,6 +83,11 @@ Recent decisions affecting current work:
 - supportDrives: true enables Shared Drives per SELECT-03 requirement - 04-01
 - viewId: 'DOCS' shows all file types (Sheets, Excel, CSV) - backend validates on download - 04-01
 - multiselect: false for one file at a time to match current workflow UX - 04-01
+- Use drive.readonly scope (not drive.file) to allow access to all user-selected Drive files - 04-02
+- Add disconnect-drive endpoint for scope updates without full logout - 04-02
+- Show reconnect banner when legacy drive.file scope detected - 04-02
+- Grid layout with two equal columns for local and Drive options side by side - 04-02
+- Preserve all existing drag-and-drop handlers for local file uploads - 04-02
 
 ### Pending Todos
 
@@ -97,7 +102,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-07 14:10:00 UTC
-Stopped at: Completed Phase 6 (Export to Drive) - All backend Drive integration complete and verified
+Last session: 2026-02-07 14:51:00 UTC
+Stopped at: Completed Phase 4 (Frontend Picker UI) - Dual-source file input with Drive integration complete and verified
 Resume file: None
-Next: Complete Phase 4 Plan 02 (Frontend Picker Integration) to finish frontend Drive integration
+Next: Phase 5 (Workflow Run Integration) - Handle Drive files in workflow run API and execution
