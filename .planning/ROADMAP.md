@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Token Management Foundation** - OAuth scope expansion with secure token storage and automatic refresh
 - [x] **Phase 2: Backend Drive Service** - Server-side Drive/Sheets API integration with error handling
-- [ ] **Phase 3: Backend Drive Endpoints** - REST API exposing Drive operations
+- [x] **Phase 3: Backend Drive Endpoints** - REST API exposing Drive operations
 - [ ] **Phase 4: Frontend Picker UI** - Google Picker integration for Drive file selection
 - [ ] **Phase 5: Workflow Integration** - Drive files as workflow inputs with mixed sources
 - [ ] **Phase 6: Export to Drive** - Push workflow results back to Drive as Google Sheets
@@ -66,7 +66,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 03-01-PLAN.md -- Drive/Sheets REST endpoints with Pydantic models + Picker token endpoint
+- [x] 03-01-PLAN.md -- Drive/Sheets REST endpoints with Pydantic models + Picker token endpoint
 
 ### Phase 4: Frontend Picker UI
 **Goal**: Users can browse and select files from Drive via Google Picker
@@ -122,7 +122,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Token Management Foundation | 2/2 | Complete | 2026-02-07 |
 | 2. Backend Drive Service | 2/2 | Complete | 2026-02-07 |
-| 3. Backend Drive Endpoints | 0/TBD | Not started | - |
+| 3. Backend Drive Endpoints | 1/1 | Complete | 2026-02-07 |
 | 4. Frontend Picker UI | 0/TBD | Not started | - |
 | 5. Workflow Integration | 0/TBD | Not started | - |
 | 6. Export to Drive | 0/TBD | Not started | - |
