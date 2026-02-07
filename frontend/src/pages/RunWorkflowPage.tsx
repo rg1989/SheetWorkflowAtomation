@@ -38,6 +38,7 @@ interface FileSlotCardProps {
   columnNames: string[]
   showVersionWarning: boolean
   driveConnected: boolean
+  loginWithDrive: () => void
   index: number
   onFileUpload: (expectedFile: FileDefinition, file: File) => void
   onSheetChange: (expectedFile: FileDefinition, uploaded: UploadedFileState, newSheet: string) => void
@@ -55,6 +56,7 @@ function FileSlotCard({
   columnNames,
   showVersionWarning,
   driveConnected,
+  loginWithDrive,
   index,
   onFileUpload,
   onSheetChange,
@@ -985,6 +987,7 @@ export function RunWorkflowPage() {
                 columnNames={columnNames}
                 showVersionWarning={showVersionWarning}
                 driveConnected={driveConnected}
+                loginWithDrive={loginWithDrive}
                 index={index}
                 onFileUpload={handleFileUpload}
                 onSheetChange={handleSheetChange}
