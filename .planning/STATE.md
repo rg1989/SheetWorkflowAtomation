@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 Phase: 6 of 6 (All phases complete)
 Plan: N/A
 Status: Milestone execution complete
-Last activity: 2026-02-07 — Completed quick task 002: Filter Drive picker to Sheets only + style UI to match app design
+Last activity: 2026-02-07 — Completed quick task 001: Upload workflow results to Drive + header row selection
 
 Progress: [██████████] 100%
 
@@ -97,8 +97,11 @@ Recent decisions affecting current work:
 - Use useDriveFilePicker hook for file selection at runtime (reuse from FilesStep) - 05-02
 - Show preview table with first 3 rows and 5 columns for Drive files - 05-02
 - Version warning compares ISO timestamps (not strings) to detect unchanged files - 05-02
-- Drive files always use headerRow=1 (not configurable) since API returns normalized data - 05-02
+- ~~Drive files always use headerRow=1 (not configurable) since API returns normalized data~~ **UPDATED** - Drive files support headerRow selection (1-10) matching local file UX - quick-001
 - Extract FileSlotCard component for file slot rendering to reduce main component complexity - 05-02
+- Show "Export to Drive" button only when Drive connected (progressive enhancement pattern) - quick-001
+- Replace Export button with "View in Google Sheets" link after successful export - quick-001
+- Backend Drive endpoints accept header_row parameter (1-indexed) for custom header row parsing - quick-001
 
 ### Pending Todos
 
@@ -115,11 +118,12 @@ None yet.
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 001 | Upload workflow results to Drive + header row selection for Drive files | 2026-02-07 | cb7a8dd | [001-upload-workflow-results-to-drive](./quick/001-upload-workflow-results-to-drive/) |
 | 002 | Filter Drive picker to Sheets only + style UI to match app design | 2026-02-07 | 8e25f3e | [002-limit-visible-files-we-can-select-in-dri](./quick/002-limit-visible-files-we-can-select-in-dri/) |
 
 ## Session Continuity
 
-Last session: 2026-02-07 15:55:00 UTC
-Stopped at: Completed all 6 phases — Milestone execution complete, ready for audit
+Last session: 2026-02-07 14:10:00 UTC
+Stopped at: Completed quick task 001 — Export to Drive UI + Drive header row support
 Resume file: None
-Next: Milestone audit to verify requirements, cross-phase integration, and E2E flows
+Next: Ready for additional quick tasks or milestone audit
