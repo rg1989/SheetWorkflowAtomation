@@ -670,7 +670,7 @@ export function RunWorkflowPage() {
     }
   }, [validateFileColumns, getMissingColumnsError])
 
-  // Handle Drive tab change for Google Sheets
+  // Handle Drive tab change for Google Sheets and Excel files
   const handleDriveTabChange = useCallback(async (
     expectedFile: FileDefinition,
     driveFile: DriveRunFileState,
@@ -682,8 +682,16 @@ export function RunWorkflowPage() {
     }))
 
     try {
-      // Read the specific tab from the sheet
-      const readResult = await driveApi.readSheet(driveFile.driveFileId, newTab)
+      let readResult: Awaited<ReturnType<typeof driveApi.readSheet>> | Awaited<ReturnType<typeof driveApi.downloadFile>>
+
+      // Route based on MIME type
+      if (driveFile.driveMimeType === 'application/vnd.google-apps.spreadsheet') {
+        // Google Sheets: use Sheets API
+        readResult = await driveApi.readSheet(driveFile.driveFileId, newTab, driveFile.headerRow)
+      } else {
+        // Excel files: use Drive download with sheet_name parameter
+        readResult = await driveApi.downloadFile(driveFile.driveFileId, driveFile.headerRow, newTab)
+      }
 
       // Convert columns from string[] to ColumnInfo[]
       const columns: ColumnInfo[] = readResult.columns.map(col => ({
