@@ -67,7 +67,7 @@ export function DriveFilePicker({ onFileReady, onError, disabled }: DriveFilePic
         columns,
         sampleData: result.sample_data,
         driveFileId: pickerFile.id,
-        driveMimeType: pickerFile.mimeType,
+        driveMimeType: result.file_metadata.mime_type, // Use actual MIME type from backend, not Picker
         driveModifiedTime: pickerFile.lastEditedUtc
           ? new Date(pickerFile.lastEditedUtc).toISOString()
           : result.file_metadata.modified_time,
