@@ -1,7 +1,11 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "dockerfilePath": "Dockerfile"
+    "dockerfilePath": "Dockerfile",
+    "buildArgs": {
+      "VITE_GOOGLE_CLIENT_ID": "${{VITE_GOOGLE_CLIENT_ID}}",
+      "VITE_GOOGLE_API_KEY": "${{VITE_GOOGLE_API_KEY}}"
+    }
   },
   "deploy": {
     "healthcheckPath": "/api/health",
