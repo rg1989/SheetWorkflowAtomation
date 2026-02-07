@@ -9,19 +9,19 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 
 ## Current Position
 
-Phase: 4 of 6 (Frontend Picker UI)
-Plan: 02 of 2 in phase
+Phase: 5 of 6 (Workflow Run Integration)
+Plan: 01 of 1 in phase
 Status: Phase complete
-Last activity: 2026-02-07 — Completed 04-02-PLAN.md (FilesStep Drive Integration)
+Last activity: 2026-02-07 — Completed 05-01-PLAN.md (Workflow Run Integration)
 
-Progress: [████████░░] 80%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
-- Average duration: 8 min
-- Total execution time: 1.06 hours
+- Total plans completed: 9
+- Average duration: 7 min
+- Total execution time: 1.10 hours
 
 **By Phase:**
 
@@ -31,13 +31,14 @@ Progress: [████████░░] 80%
 | 02-backend-drive-service | 2/2 | 5 min | 2.5 min |
 | 03-backend-drive-endpoints | 1/1 | 2 min | 2.0 min |
 | 04-frontend-picker-ui | 2/2 | 53 min | 26.5 min |
+| 05-workflow-integration | 1/1 | 2 min | 2.0 min |
 | 06-export-to-drive | 1/1 | 2 min | 2.0 min |
 
 **Recent Trend:**
-- 03-01: 2 min (REST API endpoints)
 - 06-01: 2 min (Export to Drive)
 - 04-01: 3 min (Frontend Picker Foundation)
 - 04-02: 50 min (FilesStep Drive Integration)
+- 05-01: 2 min (Workflow Run Integration)
 
 *Updated after each plan completion*
 
@@ -88,6 +89,11 @@ Recent decisions affecting current work:
 - Show reconnect banner when legacy drive.file scope detected - 04-02
 - Grid layout with two equal columns for local and Drive options side by side - 04-02
 - Preserve all existing drag-and-drop handlers for local file uploads - 04-02
+- Make files parameter optional (File(default=[])) for Drive-only workflows - 05-01
+- Default source to local when missing for backward compatibility - 05-01
+- Build Drive/Sheets services lazily (only when Drive files present) - 05-01
+- Use read_sheet_to_df for Google Sheets with tab selection - 05-01
+- Track file_info_list with mix of filenames and Drive IDs for audit trail - 05-01
 
 ### Pending Todos
 
@@ -102,7 +108,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-07 14:51:00 UTC
-Stopped at: Completed Phase 4 (Frontend Picker UI) - Dual-source file input with Drive integration complete and verified
+Last session: 2026-02-07 13:36:37 UTC
+Stopped at: Completed Phase 5 Plan 1 (Workflow Run Integration) - Backend workflow execution accepts mixed local and Drive file inputs
 Resume file: None
-Next: Phase 5 (Workflow Run Integration) - Handle Drive files in workflow run API and execution
+Next: Frontend workflow run UI updates to send Drive file metadata and handle tab selection
