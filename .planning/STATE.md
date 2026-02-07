@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 Phase: 6 of 6 (All phases complete)
 Plan: N/A
 Status: Milestone execution complete
-Last activity: 2026-02-07 — Completed quick task 005: Add sheet/tab selection for Excel files
+Last activity: 2026-02-07 — Completed quick task 006: Normalize Drive Excel column names to strings
 
 Progress: [██████████] 100%
 
@@ -104,6 +104,7 @@ Recent decisions affecting current work:
 - Backend Drive endpoints accept header_row parameter (1-indexed) for custom header row parsing - quick-001
 - FilesStep (workflow template editor) supports Drive file header row/tab changes by routing to driveApi based on file.source - quick-001 hotfix
 - Excel parser normalizes all column names to strings (handles int/float/tuple columns from custom header rows) - quick-001 hotfix
+- Drive file processing normalizes all column names to strings (matching ExcelParser) to handle non-string headers from Excel files - quick-006
 
 ### Pending Todos
 
@@ -124,10 +125,11 @@ None yet.
 | 002 | Filter Drive picker to Sheets only + style UI to match app design | 2026-02-07 | 8e25f3e | [002-limit-visible-files-we-can-select-in-dri](./quick/002-limit-visible-files-we-can-select-in-dri/) |
 | 004 | Add sheet/tab selection for Drive files | 2026-02-07 | 08f7e89 | [004-add-sheet-tab-selection-for-drive-files](./quick/004-add-sheet-tab-selection-for-drive-files/) |
 | 005 | Add sheet/tab selection for Excel files | 2026-02-07 | 0cd723b | [005-add-sheet-tab-selection-for-excel-files-](./quick/005-add-sheet-tab-selection-for-excel-files-/) |
+| 006 | Normalize Drive Excel column names to strings | 2026-02-07 | 8deb3ac | [006-normalize-drive-excel-column-names-to-st](./quick/006-normalize-drive-excel-column-names-to-st/) |
 
 ## Session Continuity
 
-Last session: 2026-02-07 19:08:59 UTC
-Stopped at: Completed quick task 005 — Added sheet/tab selection for Excel files
+Last session: 2026-02-07 19:35:27 UTC
+Stopped at: Completed quick task 006 — Normalized Drive Excel column names to strings
 Resume file: None
 Next: Ready for additional quick tasks or milestone audit
