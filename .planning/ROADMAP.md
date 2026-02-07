@@ -94,10 +94,11 @@ Plans:
   3. User sees preview of first 10 rows after selecting Drive file (before running workflow)
   4. Workflow with Drive file as input executes successfully and produces results
   5. Workflow with mixed sources (some Drive, some local upload) executes successfully
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 05-01: TBD during planning
+- [ ] 05-01-PLAN.md -- Backend mixed-source workflow run endpoint + sheet tabs listing endpoint
+- [ ] 05-02-PLAN.md -- RunWorkflowPage Drive integration with tab selection, preview, and version warnings
 
 ### Phase 6: Export to Drive
 **Goal**: Users can push workflow results back to Drive as Google Sheets
