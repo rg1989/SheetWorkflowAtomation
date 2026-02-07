@@ -351,7 +351,7 @@ function FileSlotCard({
             {uploaded ? 'Replace' : 'Upload'}
           </label>
 
-          {driveConnected && (
+          {driveConnected ? (
             <Button
               variant="secondary"
               size="sm"
@@ -361,6 +361,16 @@ function FileSlotCard({
             >
               <Cloud className="w-4 h-4" />
               {driveFile ? 'Change' : 'Pick from Drive'}
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={loginWithDrive}
+              className="inline-flex items-center gap-2"
+            >
+              <Cloud className="w-4 h-4" />
+              Connect Drive
             </Button>
           )}
         </div>
@@ -372,7 +382,7 @@ function FileSlotCard({
 export function RunWorkflowPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { driveConnected } = useAuth()
+  const { driveConnected, loginWithDrive } = useAuth()
 
   // Fetch workflow
   const { data: workflow, isLoading, error } = useQuery({
