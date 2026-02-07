@@ -61,6 +61,24 @@ async def create_tables():
             except Exception:
                 pass  # Table might not exist yet or already has column
 
+        # Migration: add Drive token columns to existing users table (SQLite)
+        try:
+            result = await conn.execute(text("PRAGMA table_info(users)"))
+            rows = result.fetchall()
+            columns = [row[1] for row in rows]
+            for col_name, col_type in [
+                ("google_access_token", "VARCHAR"),
+                ("google_refresh_token", "VARCHAR"),
+                ("token_expiry", "DATETIME"),
+                ("drive_scopes", "VARCHAR"),
+            ]:
+                if col_name not in columns:
+                    await conn.execute(
+                        text(f"ALTER TABLE users ADD COLUMN {col_name} {col_type}")
+                    )
+        except Exception:
+            pass  # Table might not exist yet
+
 
 async def get_db():
     """Dependency to get database session."""
