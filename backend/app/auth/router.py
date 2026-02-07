@@ -10,6 +10,7 @@ from sqlalchemy import select
 
 from app.auth.deps import get_current_user
 from app.auth.encryption import encrypt_token
+from app.auth.token_refresh import get_valid_access_token
 from app.db.database import get_db
 from app.db.models import UserDB
 
@@ -195,6 +196,49 @@ async def drive_status(current_user: UserDB = Depends(get_current_user)):
         "connected": connected,
         "scopes": scopes,
     }
+
+
+@router.get("/token")
+async def get_access_token(
+    current_user: UserDB = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Return the user's current valid Google access token.
+
+    This endpoint is used by the frontend to initialize Google Picker.
+    Automatically refreshes the token if it's expired or close to expiry.
+
+    Returns:
+        dict: {
+            "access_token": str,  # Valid access token
+            "expires_at": str     # ISO 8601 expiry timestamp (or None)
+        }
+
+    Raises:
+        HTTPException 401: User has no Drive connection or refresh failed
+    """
+    # Check if user has Drive tokens
+    if not current_user.google_access_token:
+        raise HTTPException(
+            status_code=401,
+            detail="No Google access token. Connect Google Drive first."
+        )
+
+    try:
+        # Get valid access token (handles refresh if needed)
+        access_token = await get_valid_access_token(current_user, db)
+
+        return {
+            "access_token": access_token,
+            "expires_at": current_user.token_expiry.isoformat() if current_user.token_expiry else None
+        }
+    except ValueError as e:
+        # User has no Drive connection
+        raise HTTPException(
+            status_code=401,
+            detail=str(e)
+        )
 
 
 @router.post("/logout")
