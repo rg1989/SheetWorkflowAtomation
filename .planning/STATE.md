@@ -102,6 +102,7 @@ Recent decisions affecting current work:
 - Show "Export to Drive" button only when Drive connected (progressive enhancement pattern) - quick-001
 - Replace Export button with "View in Google Sheets" link after successful export - quick-001
 - Backend Drive endpoints accept header_row parameter (1-indexed) for custom header row parsing - quick-001
+- FilesStep (workflow template editor) supports Drive file header row/tab changes by routing to driveApi based on file.source - quick-001 hotfix
 
 ### Pending Todos
 
@@ -123,7 +124,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-07 14:10:00 UTC
-Stopped at: Completed quick task 001 — Export to Drive UI + Drive header row support
+Last session: 2026-02-07 17:59:00 UTC
+Stopped at: Completed quick task 001 hotfix — Fixed Drive file header row changes in FilesStep (workflow template editor)
 Resume file: None
 Next: Ready for additional quick tasks or milestone audit
