@@ -239,7 +239,8 @@ async def _export_google_sheet_to_df(service, file_id: str) -> pd.DataFrame:
 async def download_drive_file_to_df(
     service,
     file_id: str,
-    mime_type: Optional[str] = None
+    mime_type: Optional[str] = None,
+    sheets_service=None,
 ) -> pd.DataFrame:
     """
     Download a Drive file and convert to pandas DataFrame.
@@ -247,10 +248,14 @@ async def download_drive_file_to_df(
     Supports Excel (.xlsx), CSV, and Google Sheets files.
     Automatically determines MIME type if not provided.
 
+    For Google Sheets: prefers native Sheets API read (if sheets_service provided)
+    with fallback to Drive export-as-Excel approach.
+
     Args:
         service: Google Drive API service object
         file_id: Drive file ID
         mime_type: Optional MIME type (if known, skips metadata lookup)
+        sheets_service: Optional Google Sheets API service object (for native Sheets read)
 
     Returns:
         pd.DataFrame: Parsed DataFrame
@@ -268,7 +273,13 @@ async def download_drive_file_to_df(
 
     # Route based on MIME type
     if mime_type == MIME_GOOGLE_SHEET:
-        return await _export_google_sheet_to_df(service, file_id)
+        if sheets_service is not None:
+            # Prefer native Sheets API for better efficiency
+            from app.services.sheets import read_sheet_to_df
+            return await read_sheet_to_df(sheets_service, file_id)
+        else:
+            # Fallback to Drive export if Sheets service not available
+            return await _export_google_sheet_to_df(service, file_id)
     elif mime_type == MIME_EXCEL:
         return await _download_binary_to_df(service, file_id, "excel")
     elif mime_type == MIME_CSV:
