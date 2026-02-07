@@ -476,10 +476,11 @@ export function RunWorkflowPage() {
     })
 
     try {
-      // 3. Download file metadata + sample data
-      const downloadResult = await driveApi.downloadFile(pickedFile.id)
+      // 3. Use expected sheet and header row from workflow definition
+      const expectedSheet = expectedFile.sheetName
+      const expectedHeaderRow = expectedFile.headerRow ?? 1
 
-      // 4. If Google Sheet or Excel file, also fetch available tabs
+      // 4. If Google Sheet or Excel file, fetch available tabs
       const EXCEL_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       const SHEETS_MIME = 'application/vnd.google-apps.spreadsheet'
 
@@ -489,17 +490,20 @@ export function RunWorkflowPage() {
         availableTabs = tabsResult.tabs
       }
 
-      // 5. Convert columns from string[] to ColumnInfo[]
+      // 5. Download file with expected sheet and header row (just like local upload does)
+      const downloadResult = await driveApi.downloadFile(pickedFile.id, expectedHeaderRow, expectedSheet)
+
+      // 6. Convert columns from string[] to ColumnInfo[]
       const columns: ColumnInfo[] = downloadResult.columns.map(col => ({
         name: col,
         type: 'text' as const,
         sampleValues: [],
       }))
 
-      // 6. Validate columns against expected columns (reuse validateFileColumns)
+      // 7. Validate columns against expected columns (reuse validateFileColumns)
       const validated = validateFileColumns(columns, expectedFile.columns || [])
 
-      // 7. Store complete state (including originalFile for re-fetching)
+      // 8. Store complete state (including originalFile for re-fetching)
       setDriveFiles(prev => ({
         ...prev,
         [expectedFile.id]: {
@@ -512,8 +516,8 @@ export function RunWorkflowPage() {
           sampleData: downloadResult.sample_data,
           rowCount: downloadResult.row_count,
           availableTabs,
-          selectedTab: availableTabs?.[0]?.title,
-          headerRow: 1, // Default to row 1 as header
+          selectedTab: expectedSheet || availableTabs?.[0]?.title,
+          headerRow: expectedHeaderRow,
           originalFile: pickedFile, // Store for re-fetching with different settings
           isLoading: false,
           error: validated ? undefined : getMissingColumnsError(columns, expectedFile.columns || []),
