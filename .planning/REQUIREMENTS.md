@@ -3,9 +3,9 @@
 ## v1 Requirements
 
 ### OAuth & Authentication
-- [ ] **AUTH-01**: User's Google Drive is automatically accessible after OAuth login with expanded scopes (drive.file + spreadsheets)
-- [ ] **AUTH-02**: Access tokens automatically refresh when expired (1-hour lifetime) without user re-authentication
-- [ ] **AUTH-03**: Refresh tokens stored encrypted in database using Fernet encryption
+- [x] **AUTH-01**: User's Google Drive is automatically accessible after OAuth login with expanded scopes (drive.file + spreadsheets)
+- [x] **AUTH-02**: Access tokens automatically refresh when expired (1-hour lifetime) without user re-authentication
+- [x] **AUTH-03**: Refresh tokens stored encrypted in database using Fernet encryption
 
 ### File Selection
 - [ ] **SELECT-01**: User can browse and select files from Drive via Google Picker popup widget
@@ -60,9 +60,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | Phase 1 | Pending |
-| AUTH-02 | Phase 1 | Pending |
-| AUTH-03 | Phase 1 | Pending |
+| AUTH-01 | Phase 1 | Complete |
+| AUTH-02 | Phase 1 | Complete |
+| AUTH-03 | Phase 1 | Complete |
 | SELECT-01 | Phase 4 | Pending |
 | SELECT-02 | Phase 3 | Pending |
 | SELECT-03 | Phase 4 | Pending |
