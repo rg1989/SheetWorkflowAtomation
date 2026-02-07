@@ -36,6 +36,14 @@ export interface FileDefinition {
   availableSheets?: string[] // All available sheets in the file
   originalFile?: File // Keep reference to original file for re-parsing
   headerRow?: number // Which row contains headers (1-indexed, default: 1)
+
+  // File source type
+  source?: 'local' | 'drive'  // Optional for backward compat, defaults to 'local'
+
+  // Drive file metadata (only present when source === 'drive')
+  driveFileId?: string        // Google Drive file ID
+  driveMimeType?: string      // MIME type from Drive (e.g., 'application/vnd.google-apps.spreadsheet')
+  driveModifiedTime?: string  // ISO 8601 timestamp of last modification
 }
 
 // ============================================================================
@@ -307,4 +315,67 @@ export interface DiffResult {
   changes: RowChange[]
   warnings: Warning[]
   summary: DiffSummary
+}
+
+// ============================================================================
+// Google Drive Types
+// ============================================================================
+
+/** Metadata returned from Google Picker when user selects a file */
+export interface DrivePickerFile {
+  id: string
+  name: string
+  mimeType: string
+  lastEditedUtc?: number
+  sizeBytes?: number
+}
+
+/** Response from /api/drive/download and /api/drive/read endpoints */
+export interface DriveFileResponse {
+  success: boolean
+  file_metadata: {
+    id: string
+    name: string
+    mime_type: string
+    modified_time: string
+    owner: string
+    web_view_link: string
+    size?: number
+  }
+  row_count: number
+  columns: string[]
+  sample_data: Record<string, unknown>[]
+}
+
+/** State tracking for a Drive file selected at run time */
+export interface DriveRunFileState {
+  driveFileId: string
+  driveMimeType: string
+  driveModifiedTime?: string
+  name: string
+  validated: boolean
+  error?: string
+  columns?: ColumnInfo[]
+  sampleData?: Record<string, unknown>[]
+  rowCount?: number
+  availableTabs?: Array<{ title: string; index: number; sheetId: number }>
+  selectedTab?: string
+  headerRow?: number
+  originalFile?: DrivePickerFile  // Preserve original picker file for re-fetching
+  isLoading?: boolean
+}
+
+/** Response from Drive export operations */
+export interface ExportResponse {
+  success: boolean
+  spreadsheet_id: string
+  spreadsheet_url: string
+  updated_cells: number
+}
+
+/** Full result data with all rows for preview and search */
+export interface FullResultData {
+  columns: string[]
+  data: Record<string, unknown>[]
+  rowCount: number
 }

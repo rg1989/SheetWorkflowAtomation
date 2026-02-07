@@ -1,10 +1,22 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Play, Trash2, FileSpreadsheet, ArrowDown, Table2, Pencil } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Play, Trash2, FileSpreadsheet, ArrowDown, Table2, Pencil, ChevronDown, ChevronUp, CheckCircle, XCircle, Eye, Download, History } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Button } from './ui/Button'
+import { Badge } from './ui/Badge'
+import { Spinner } from './ui/Spinner'
+import { FileNamingModal } from './FileNamingModal'
 import { getFileColor } from '../lib/colors'
 import { formatRelativeTime } from '../lib/utils'
-import type { Workflow } from '../types'
+import { runApi } from '../lib/api'
+import type { Workflow, RunStatus } from '../types'
+
+const statusConfig: Record<RunStatus, { label: string; variant: 'default' | 'success' | 'warning' | 'error' | 'info'; icon: typeof CheckCircle }> = {
+  preview: { label: 'Preview', variant: 'info', icon: Eye },
+  completed: { label: 'Completed', variant: 'success', icon: CheckCircle },
+  failed: { label: 'Failed', variant: 'error', icon: XCircle },
+}
 
 interface WorkflowCardProps {
   workflow: Workflow
@@ -15,9 +27,54 @@ interface WorkflowCardProps {
 export function WorkflowCard({ workflow, onDelete, isDeleting }: WorkflowCardProps) {
   const files = workflow.files || []
   const outputColumns = workflow.outputColumns || []
+  const [expanded, setExpanded] = useState(false)
+
+  // File naming modal state
+  const [namingModal, setNamingModal] = useState<{
+    isOpen: boolean
+    runId: string
+  }>({ isOpen: false, runId: '' })
+  const [fileName, setFileName] = useState('')
+
+  const { data: runs, isLoading: runsLoading } = useQuery({
+    queryKey: ['runs', workflow.id],
+    queryFn: () => runApi.list(workflow.id),
+    enabled: expanded,
+  })
+
+  // Generate default file name
+  const getDefaultFileName = (createdAt: string) => {
+    const relativeTime = formatRelativeTime(createdAt)
+    return `${workflow.name} - ${relativeTime}`
+  }
+
+  const handleDownload = (runId: string, createdAt: string) => {
+    setFileName(getDefaultFileName(createdAt))
+    setNamingModal({ isOpen: true, runId })
+  }
+
+  const handleNamingConfirm = async (confirmedName: string) => {
+    try {
+      const response = await fetch(runApi.downloadUrl(namingModal.runId, 'excel'), {
+        credentials: 'include',
+      })
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = confirmedName.endsWith('.xlsx') ? confirmedName : `${confirmedName}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      setNamingModal({ isOpen: false, runId: '' })
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to download file')
+    }
+  }
 
   return (
-    <div className="border border-slate-200 rounded-lg hover:border-slate-300 transition-all hover:shadow-sm bg-white p-3">
+    <div className="border border-slate-200 rounded-lg hover:border-slate-300 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 bg-white p-3">
       {/* Top row: name, description, actions */}
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="min-w-0 flex-1">
@@ -120,6 +177,71 @@ export function WorkflowCard({ workflow, onDelete, isDeleting }: WorkflowCardPro
           </div>
         </div>
       </div>
+
+      {/* Expand/Collapse Run History toggle */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full mt-2 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-md transition-colors duration-200"
+      >
+        <History className="w-3.5 h-3.5" />
+        Run History
+        {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+      </button>
+
+      {/* Expanded run history list */}
+      {expanded && (
+        <div className="mt-1 border-t border-slate-100 pt-2">
+          {runsLoading ? (
+            <div className="flex items-center justify-center py-3">
+              <Spinner size="sm" />
+            </div>
+          ) : !runs || runs.length === 0 ? (
+            <p className="text-xs text-slate-400 text-center py-2">No runs yet</p>
+          ) : (
+            <div className="space-y-1.5">
+              {runs.map((run) => {
+                const status = statusConfig[run.status] || statusConfig.completed
+                const StatusIcon = status.icon
+
+                return (
+                  <div
+                    key={run.id}
+                    className="flex items-center justify-between px-2.5 py-1.5 rounded-md bg-slate-50 hover:bg-slate-100 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Badge variant={status.variant}>
+                        <StatusIcon className="w-3 h-3 mr-1" />
+                        {status.label}
+                      </Badge>
+                      <span className="text-xs text-slate-500">
+                        {formatRelativeTime(run.createdAt)}
+                      </span>
+                    </div>
+                    {run.status === 'completed' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDownload(run.id, run.createdAt)}
+                        className="!px-2 !py-1 text-slate-500 hover:text-primary-600"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      <FileNamingModal
+        isOpen={namingModal.isOpen}
+        onClose={() => setNamingModal({ isOpen: false, runId: '' })}
+        onConfirm={handleNamingConfirm}
+        defaultName={fileName}
+        actionLabel="Download"
+      />
     </div>
   )
 }

@@ -1,15 +1,28 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Upload, FileSpreadsheet, AlertCircle } from 'lucide-react'
+import { Upload, FileSpreadsheet, AlertCircle, Cloud, RefreshCw } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { MAX_FILES, FILE_COLORS } from '../../../lib/colors'
 import { FileCard } from '../FileCard'
-import { fileApi } from '../../../lib/api'
+import { fileApi, authApi, driveApi } from '../../../lib/api'
+import { useAuth } from '../../../context/AuthContext'
+import { DriveFilePicker } from '../DriveFilePicker'
 import type { FileDefinition, ColumnInfo } from '../../../types'
 
 interface FilesStepProps {
   files: FileDefinition[]
   onAddFile: (file: File, columns: ColumnInfo[], sampleData?: Record<string, unknown>[], sheetName?: string, availableSheets?: string[], headerRow?: number) => void
+  onAddDriveFile: (params: {
+    name: string
+    filename: string
+    columns: ColumnInfo[]
+    sampleData?: Record<string, unknown>[]
+    driveFileId: string
+    driveMimeType: string
+    driveModifiedTime?: string
+    availableSheets?: string[]
+    sheetName?: string
+  }) => void
   onRemoveFile: (fileId: string) => void
   onUpdateFileName: (fileId: string, name: string) => void
   onUpdateFileSheet: (fileId: string, columns: ColumnInfo[], sampleData?: Record<string, unknown>[], sheetName?: string) => void
@@ -19,6 +32,7 @@ interface FilesStepProps {
 export function FilesStep({
   files,
   onAddFile,
+  onAddDriveFile,
   onRemoveFile,
   onUpdateFileName,
   onUpdateFileSheet,
@@ -29,8 +43,38 @@ export function FilesStep({
   const [error, setError] = useState<string | null>(null)
   const [changingSheetFileId, setChangingSheetFileId] = useState<string | null>(null)
   const [changingHeaderRowFileId, setChangingHeaderRowFileId] = useState<string | null>(null)
+  const [needsReconnect, setNeedsReconnect] = useState(false)
+  const [isReconnecting, setIsReconnecting] = useState(false)
 
+  const { driveConnected, loginWithDrive } = useAuth()
   const canAddMore = files.length < MAX_FILES
+
+  // Check if user needs to reconnect Drive (has legacy scope)
+  useEffect(() => {
+    if (driveConnected) {
+      authApi.driveStatus().then((status) => {
+        setNeedsReconnect(status.needsReconnect)
+      }).catch(() => {
+        // Ignore errors - reconnect banner is optional
+      })
+    }
+  }, [driveConnected])
+
+  const handleDriveError = useCallback((errorMessage: string) => {
+    setError(errorMessage)
+  }, [])
+
+  const handleReconnectDrive = useCallback(async () => {
+    setIsReconnecting(true)
+    try {
+      await authApi.disconnectDrive()
+      // Redirect to OAuth with Drive scopes
+      loginWithDrive()
+    } catch (err) {
+      setError('Failed to reconnect Drive. Please try again.')
+      setIsReconnecting(false)
+    }
+  }, [loginWithDrive])
 
   const handleFiles = useCallback(
     async (fileList: FileList) => {
@@ -62,18 +106,50 @@ export function FilesStep({
   )
 
   const handleChangeSheet = useCallback(
-    async (fileId: string, originalFile: File | undefined, sheetName: string, currentHeaderRow: number = 1) => {
-      if (!originalFile) {
-        setError('Cannot change sheet: original file reference not available')
-        return
-      }
-
+    async (fileId: string, file: FileDefinition, sheetName: string, currentHeaderRow: number = 1) => {
       setError(null)
       setChangingSheetFileId(fileId)
 
       try {
-        // Preserve the current header row setting when changing sheets
-        const result = await fileApi.parseColumns(originalFile, sheetName, currentHeaderRow)
+        let result: { columns: ColumnInfo[]; sampleData?: Record<string, unknown>[]; sheetName?: string }
+
+        // Check if it's a Drive file
+        if (file.source === 'drive' && file.driveFileId) {
+          // Use Drive API for Google Sheets
+          if (file.driveMimeType === 'application/vnd.google-apps.spreadsheet') {
+            const readResult = await driveApi.readSheet(file.driveFileId, sheetName, currentHeaderRow)
+            result = {
+              columns: readResult.columns.map(col => ({
+                name: col,
+                type: 'text' as const,
+                sampleValues: [],
+              })),
+              sampleData: readResult.sample_data,
+              sheetName,
+            }
+          } else {
+            // For Excel/CSV Drive files, use downloadFile with sheet_name
+            const downloadResult = await driveApi.downloadFile(file.driveFileId, currentHeaderRow, sheetName)
+            result = {
+              columns: downloadResult.columns.map(col => ({
+                name: col,
+                type: 'text' as const,
+                sampleValues: [],
+              })),
+              sampleData: downloadResult.sample_data,
+              sheetName,
+            }
+          }
+        } else if (file.originalFile) {
+          // Use local file API
+          const parseResult = await fileApi.parseColumns(file.originalFile, sheetName, currentHeaderRow)
+          result = parseResult
+        } else {
+          setError('Cannot change sheet: file reference not available')
+          setChangingSheetFileId(null)
+          return
+        }
+
         const sampleData = result.sampleData ?? result.columns.map((col: ColumnInfo) => ({
           [col.name]: col.sampleValues?.[0] ?? null,
         }))
@@ -88,17 +164,51 @@ export function FilesStep({
   )
 
   const handleChangeHeaderRow = useCallback(
-    async (fileId: string, originalFile: File | undefined, sheetName: string | undefined, headerRow: number) => {
-      if (!originalFile) {
-        setError('Cannot change header row: original file reference not available')
-        return
-      }
-
+    async (fileId: string, file: FileDefinition, sheetName: string | undefined, headerRow: number) => {
       setError(null)
       setChangingHeaderRowFileId(fileId)
 
       try {
-        const result = await fileApi.parseColumns(originalFile, sheetName, headerRow)
+        let result: { columns: ColumnInfo[]; sampleData?: Record<string, unknown>[]; headerRow?: number }
+
+        // Check if it's a Drive file
+        if (file.source === 'drive' && file.driveFileId) {
+          // Use appropriate Drive API based on file type
+          if (file.driveMimeType === 'application/vnd.google-apps.spreadsheet') {
+            // For Google Sheets, use readSheet with the current tab
+            const readResult = await driveApi.readSheet(file.driveFileId, sheetName || '', headerRow)
+            result = {
+              columns: readResult.columns.map(col => ({
+                name: col,
+                type: 'text' as const,
+                sampleValues: [],
+              })),
+              sampleData: readResult.sample_data,
+              headerRow,
+            }
+          } else {
+            // For Excel/CSV files, use downloadFile
+            const downloadResult = await driveApi.downloadFile(file.driveFileId, headerRow, sheetName)
+            result = {
+              columns: downloadResult.columns.map(col => ({
+                name: col,
+                type: 'text' as const,
+                sampleValues: [],
+              })),
+              sampleData: downloadResult.sample_data,
+              headerRow,
+            }
+          }
+        } else if (file.originalFile) {
+          // Use local file API
+          const parseResult = await fileApi.parseColumns(file.originalFile, sheetName, headerRow)
+          result = parseResult
+        } else {
+          setError('Cannot change header row: file reference not available')
+          setChangingHeaderRowFileId(null)
+          return
+        }
+
         const sampleData = result.sampleData ?? result.columns.map((col: ColumnInfo) => ({
           [col.name]: col.sampleValues?.[0] ?? null,
         }))
@@ -155,12 +265,52 @@ export function FilesStep({
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold text-slate-900 mb-2">
-          Upload Your Files
+          Add Your Files
         </h2>
         <p className="text-slate-500">
-          Add the Excel files you want to combine. You can upload up to {MAX_FILES} files.
+          Upload Excel files or select from Google Drive. You can add up to {MAX_FILES} files.
         </p>
       </div>
+
+      {/* Reconnect Drive banner */}
+      <AnimatePresence>
+        {needsReconnect && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg"
+          >
+            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-amber-900 font-medium mb-1">
+                Drive Permissions Update Required
+              </p>
+              <p className="text-sm text-amber-700 mb-3">
+                Your Google Drive connection needs to be updated to access all your files.
+                Click reconnect to grant the latest permissions.
+              </p>
+              <button
+                onClick={handleReconnectDrive}
+                disabled={isReconnecting}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isReconnecting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Reconnecting...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    Reconnect Google Drive
+                  </>
+                )}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Color legend */}
       <div className="flex items-center gap-4 text-sm">
@@ -194,76 +344,101 @@ export function FilesStep({
         )}
       </AnimatePresence>
 
-      {/* Upload zone */}
+      {/* File source options */}
       {canAddMore && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={cn(
-            'relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer',
-            isDragging
-              ? 'border-primary-500 bg-primary-50'
-              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50',
-            isUploading && 'pointer-events-none opacity-50'
-          )}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          onClick={() => document.getElementById('file-input')?.click()}
-        >
-          <input
-            id="file-input"
-            type="file"
-            accept=".xlsx,.xls"
-            multiple
-            onChange={handleFileInput}
-            className="hidden"
-          />
-
-          <motion.div
-            animate={isDragging ? { scale: 1.05 } : { scale: 1 }}
-            className="flex flex-col items-center"
-          >
-            <div
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Local upload option */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
               className={cn(
-                'w-16 h-16 rounded-full flex items-center justify-center mb-4 transition-colors duration-200',
-                isDragging ? 'bg-primary-100' : 'bg-slate-100'
+                'relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-200 cursor-pointer',
+                isDragging
+                  ? 'border-primary-500 bg-primary-50'
+                  : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50',
+                isUploading && 'pointer-events-none opacity-50'
               )}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => document.getElementById('file-input')?.click()}
             >
-              {isUploading ? (
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                >
-                  <FileSpreadsheet
-                    className={cn(
-                      'w-8 h-8',
-                      isDragging ? 'text-primary-600' : 'text-slate-500'
-                    )}
-                  />
-                </motion.div>
-              ) : (
-                <Upload
-                  className={cn(
-                    'w-8 h-8',
-                    isDragging ? 'text-primary-600' : 'text-slate-500'
-                  )}
-                />
-              )}
-            </div>
+              <input
+                id="file-input"
+                type="file"
+                accept=".xlsx,.xls"
+                multiple
+                onChange={handleFileInput}
+                className="hidden"
+              />
 
-            <p className="text-lg font-medium text-slate-700 mb-1">
-              {isUploading
-                ? 'Processing file...'
-                : isDragging
-                ? 'Drop files here'
-                : 'Drop Excel files here or click to upload'}
-            </p>
-            <p className="text-sm text-slate-500">
-              {MAX_FILES - files.length} more file{MAX_FILES - files.length !== 1 ? 's' : ''} can be added
-            </p>
-          </motion.div>
-        </motion.div>
+              <motion.div
+                animate={isDragging ? { scale: 1.05 } : { scale: 1 }}
+                className="flex flex-col items-center"
+              >
+                <div
+                  className={cn(
+                    'w-12 h-12 rounded-full flex items-center justify-center mb-3 transition-colors duration-200',
+                    isDragging ? 'bg-primary-100' : 'bg-slate-100'
+                  )}
+                >
+                  {isUploading ? (
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                    >
+                      <FileSpreadsheet className="w-6 h-6 text-slate-500" />
+                    </motion.div>
+                  ) : (
+                    <Upload className={cn('w-6 h-6', isDragging ? 'text-primary-600' : 'text-slate-500')} />
+                  )}
+                </div>
+
+                <p className="font-medium text-slate-700 mb-1">
+                  {isUploading ? 'Processing...' : isDragging ? 'Drop files here' : 'Upload from Computer'}
+                </p>
+                <p className="text-sm text-slate-500">
+                  Drop Excel files or click to browse
+                </p>
+              </motion.div>
+            </motion.div>
+
+            {/* Drive picker option */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+            >
+              {driveConnected ? (
+                <DriveFilePicker
+                  onFileReady={onAddDriveFile}
+                  onError={handleDriveError}
+                  disabled={!canAddMore || isUploading}
+                />
+              ) : (
+                <button
+                  onClick={loginWithDrive}
+                  className="flex flex-col items-center gap-3 p-6 border-2 border-dashed border-slate-300 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all duration-200 w-full h-full justify-center"
+                >
+                  <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
+                    <Cloud className="w-6 h-6 text-primary-400" />
+                  </div>
+                  <div>
+                    <div className="font-medium text-slate-900">Connect Google Drive</div>
+                    <div className="text-sm text-slate-500">
+                      Grant access to select files from Drive
+                    </div>
+                  </div>
+                </button>
+              )}
+            </motion.div>
+          </div>
+
+          <p className="text-center text-xs text-slate-400">
+            {MAX_FILES - files.length} more file{MAX_FILES - files.length !== 1 ? 's' : ''} can be added
+          </p>
+        </div>
       )}
 
       {/* File limit reached message */}
@@ -287,8 +462,8 @@ export function FilesStep({
               index={index}
               onRemove={() => onRemoveFile(file.id)}
               onUpdateName={(name) => onUpdateFileName(file.id, name)}
-              onChangeSheet={(sheetName) => handleChangeSheet(file.id, file.originalFile, sheetName, file.headerRow ?? 1)}
-              onChangeHeaderRow={(headerRow) => handleChangeHeaderRow(file.id, file.originalFile, file.sheetName, headerRow)}
+              onChangeSheet={(sheetName) => handleChangeSheet(file.id, file, sheetName, file.headerRow ?? 1)}
+              onChangeHeaderRow={(headerRow) => handleChangeHeaderRow(file.id, file, file.sheetName, headerRow)}
               isChangingSheet={changingSheetFileId === file.id}
               isChangingHeaderRow={changingHeaderRowFileId === file.id}
             />

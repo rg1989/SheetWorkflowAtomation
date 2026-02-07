@@ -28,3 +28,12 @@ python-dotenv>=1.0.0
 authlib>=1.3.0
 httpx>=0.27.0
 itsdangerous>=2.1.0
+cryptography>=42.0.0
+
+# Google API client
+google-api-python-client>=2.100.0
+google-auth>=2.20.0
+google-auth-oauthlib>=1.0.0
+
+# Retry logic
+tenacity>=8.2.0

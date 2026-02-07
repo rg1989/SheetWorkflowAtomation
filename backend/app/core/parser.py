@@ -28,12 +28,20 @@ class ExcelParser:
                 header=header_row,
                 engine='openpyxl'
             )
-            
-            # Clean column names (strip whitespace)
-            df.columns = df.columns.str.strip() if hasattr(df.columns, 'str') else df.columns
-            
+
+            # Normalize column names to strings and strip whitespace
+            # Handle cases where columns might be integers, floats, or tuples
+            new_columns = []
+            for col in df.columns:
+                if isinstance(col, str):
+                    new_columns.append(col.strip())
+                else:
+                    # Convert non-string columns to string (e.g., int, float, tuple)
+                    new_columns.append(str(col).strip())
+            df.columns = new_columns
+
             return df
-            
+
         except Exception as e:
             raise ValueError(f"Failed to parse Excel file: {str(e)}")
     

@@ -15,6 +15,10 @@ class UserDB(Base):
     name = Column(String, nullable=True)
     avatar_url = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+    google_access_token = Column(String, nullable=True)
+    google_refresh_token = Column(String, nullable=True)
+    token_expiry = Column(DateTime, nullable=True)
+    drive_scopes = Column(String, nullable=True)
 
 
 class WorkflowDB(Base):

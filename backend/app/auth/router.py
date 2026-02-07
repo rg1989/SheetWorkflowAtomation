@@ -1,13 +1,16 @@
 """Auth routes: Google OAuth login/callback, me, logout."""
 import logging
 import os
+from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.auth.deps import get_current_user
+from app.auth.encryption import encrypt_token
+from app.auth.token_refresh import get_valid_access_token
 from app.db.database import get_db
 from app.db.models import UserDB
 
@@ -47,8 +50,12 @@ def get_oauth():
 
 
 @router.get("/login")
-async def login(request: Request):
-    """Redirect to Google consent screen."""
+async def login(request: Request, scope: str = None):
+    """Redirect to Google consent screen.
+
+    Args:
+        scope: Optional scope parameter. Pass 'drive' to request Drive and Sheets scopes.
+    """
     client_id, client_secret, redirect_base = _get_credentials()
     if not client_id or not client_secret:
         logger.error(
@@ -60,12 +67,33 @@ async def login(request: Request):
     base = redirect_base.rstrip("/") if redirect_base else str(request.base_url).rstrip("/")
     redirect_uri = f"{base}/api/auth/callback"
     oauth = get_oauth()
-    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+    # Determine scopes based on query parameter
+    scopes = "openid email profile"
+    extra_params = {}
+
+    if scope == "drive":
+        # Request Drive and Sheets scopes with offline access
+        # drive.readonly: Read-only access to all Drive files (needed to download user-selected files)
+        # spreadsheets: Full access to Sheets (needed to create/update output sheets)
+        scopes = "openid email profile https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/spreadsheets"
+        extra_params = {
+            "access_type": "offline",
+            "prompt": "consent"
+        }
+        request.session["oauth_scope_mode"] = "drive"
+
+    return await oauth.google.authorize_redirect(
+        request,
+        redirect_uri,
+        scope=scopes,
+        **extra_params
+    )
 
 
 @router.get("/callback")
 async def callback(request: Request, db: AsyncSession = Depends(get_db)):
-    """Handle Google OAuth callback: exchange code, create/update user, set session."""
+    """Handle Google OAuth callback: exchange code, create/update user, store tokens, set session."""
     oauth = get_oauth()
     try:
         token = await oauth.google.authorize_access_token(request)
@@ -80,6 +108,7 @@ async def callback(request: Request, db: AsyncSession = Depends(get_db)):
     picture = userinfo.get("picture")
     if not sub:
         return RedirectResponse(url="/?error=no_sub", status_code=302)
+
     # Create or update user
     result = await db.execute(select(UserDB).where(UserDB.id == sub))
     user = result.scalar_one_or_none()
@@ -90,8 +119,37 @@ async def callback(request: Request, db: AsyncSession = Depends(get_db)):
         user.email = email
         user.name = name
         user.avatar_url = picture
+
+    # Store OAuth tokens if present
+    if "access_token" in token:
+        encrypted_access_token = encrypt_token(token["access_token"])
+        user.google_access_token = encrypted_access_token
+
+        # Calculate token expiry
+        expires_in = token.get("expires_in", 3600)
+        user.token_expiry = datetime.utcnow() + timedelta(seconds=expires_in)
+
+        # Store refresh token if present (only returned on first consent or when prompt=consent)
+        if "refresh_token" in token:
+            encrypted_refresh_token = encrypt_token(token["refresh_token"])
+            user.google_refresh_token = encrypted_refresh_token
+
+        # Store granted scopes
+        user.drive_scopes = token.get("scope", "")
+
+        logger.info(
+            "Stored OAuth tokens for user %s (scopes: %s, has_refresh: %s)",
+            user.id,
+            user.drive_scopes,
+            "refresh_token" in token
+        )
+
+    # Clear session oauth scope mode
+    request.session.pop("oauth_scope_mode", None)
+
     await db.commit()
     request.session["user_id"] = user.id
+
     # Redirect to app root (SPA will load)
     # In dev mode, frontend runs on a separate Vite dev server
     frontend_url = os.environ.get("FRONTEND_URL", "")
@@ -106,12 +164,125 @@ async def callback(request: Request, db: AsyncSession = Depends(get_db)):
 @router.get("/me")
 async def me(current_user: UserDB = Depends(get_current_user)):
     """Return current user or 401."""
+    # Check if user has Drive scopes
+    drive_connected = False
+    if current_user.drive_scopes:
+        scopes = current_user.drive_scopes.split()
+        # Accept either drive.file (legacy) or drive.readonly (new)
+        has_drive_scope = (
+            "https://www.googleapis.com/auth/drive.file" in scopes or
+            "https://www.googleapis.com/auth/drive.readonly" in scopes
+        )
+        drive_connected = (
+            has_drive_scope and
+            "https://www.googleapis.com/auth/spreadsheets" in scopes
+        )
+
     return {
         "id": current_user.id,
         "email": current_user.email,
         "name": current_user.name,
         "avatarUrl": current_user.avatar_url,
+        "driveConnected": drive_connected,
     }
+
+
+@router.get("/drive-status")
+async def drive_status(current_user: UserDB = Depends(get_current_user)):
+    """Return Drive connection status and granted scopes."""
+    if not current_user.drive_scopes:
+        return {
+            "connected": False,
+            "scopes": [],
+            "hasLegacyScope": False,
+            "needsReconnect": False
+        }
+
+    scopes = current_user.drive_scopes.split()
+    has_legacy_drive_file = "https://www.googleapis.com/auth/drive.file" in scopes
+    has_drive_readonly = "https://www.googleapis.com/auth/drive.readonly" in scopes
+    has_spreadsheets = "https://www.googleapis.com/auth/spreadsheets" in scopes
+
+    # Accept either drive.file (legacy) or drive.readonly (new)
+    has_drive_scope = has_legacy_drive_file or has_drive_readonly
+    connected = has_drive_scope and has_spreadsheets
+
+    # User needs to reconnect if they have legacy drive.file scope
+    needs_reconnect = has_legacy_drive_file and not has_drive_readonly
+
+    return {
+        "connected": connected,
+        "scopes": scopes,
+        "hasLegacyScope": has_legacy_drive_file,
+        "needsReconnect": needs_reconnect,
+    }
+
+
+@router.get("/token")
+async def get_access_token(
+    current_user: UserDB = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Return the user's current valid Google access token.
+
+    This endpoint is used by the frontend to initialize Google Picker.
+    Automatically refreshes the token if it's expired or close to expiry.
+
+    Returns:
+        dict: {
+            "access_token": str,  # Valid access token
+            "expires_at": str     # ISO 8601 expiry timestamp (or None)
+        }
+
+    Raises:
+        HTTPException 401: User has no Drive connection or refresh failed
+    """
+    # Check if user has Drive tokens
+    if not current_user.google_access_token:
+        raise HTTPException(
+            status_code=401,
+            detail="No Google access token. Connect Google Drive first."
+        )
+
+    try:
+        # Get valid access token (handles refresh if needed)
+        access_token = await get_valid_access_token(current_user, db)
+
+        return {
+            "access_token": access_token,
+            "expires_at": current_user.token_expiry.isoformat() if current_user.token_expiry else None
+        }
+    except ValueError as e:
+        # User has no Drive connection
+        raise HTTPException(
+            status_code=401,
+            detail=str(e)
+        )
+
+
+@router.post("/disconnect-drive")
+async def disconnect_drive(
+    current_user: UserDB = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Disconnect Google Drive by clearing OAuth tokens.
+
+    This allows users to reconnect with updated scopes.
+    User session remains active.
+    """
+    # Clear Drive tokens
+    current_user.google_access_token = None
+    current_user.google_refresh_token = None
+    current_user.token_expiry = None
+    current_user.drive_scopes = None
+
+    await db.commit()
+
+    logger.info("User %s disconnected Google Drive", current_user.id)
+
+    return {"success": True, "message": "Google Drive disconnected"}
 
 
 @router.post("/logout")

@@ -5,6 +5,9 @@ import type {
   Run,
   FileParseResult,
   RunResult,
+  DriveFileResponse,
+  ExportResponse,
+  FullResultData,
 } from '../types'
 
 const API_BASE = '/api'
@@ -18,6 +21,14 @@ export interface AuthUser {
   email: string
   name: string | null
   avatarUrl: string | null
+  driveConnected: boolean  // NEW: whether user has Drive scopes
+}
+
+export interface DriveStatus {
+  connected: boolean
+  scopes: string[]
+  hasLegacyScope: boolean
+  needsReconnect: boolean
 }
 
 // Auth API
@@ -34,6 +45,17 @@ export const authApi = {
     }).then(() => undefined),
 
   loginUrl: (): string => `${API_BASE}/auth/login`,
+
+  driveStatus: (): Promise<DriveStatus> =>
+    fetch(`${API_BASE}/auth/drive-status`, { ...defaultFetchOptions }).then((r) =>
+      r.ok ? r.json() : Promise.reject(new Error('Failed to get Drive status'))
+    ),
+
+  disconnectDrive: (): Promise<{ success: boolean; message: string }> =>
+    fetch(`${API_BASE}/auth/disconnect-drive`, {
+      ...defaultFetchOptions,
+      method: 'POST',
+    }).then((r) => r.json()),
 }
 
 async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
@@ -78,37 +100,43 @@ export const workflowApi = {
     }),
   
   /**
-   * Run a workflow with uploaded files.
+   * Run a workflow with uploaded files and/or Drive files.
    * @param id - Workflow ID
-   * @param files - Array of files to process (in order of expected files)
-   * @param fileConfigs - Map of file ID to {sheetName, headerRow}
+   * @param files - Array of local files to process (can be empty for Drive-only workflows)
+   * @param fileConfigs - Map of file ID to {source, sheetName, headerRow, driveFileId, driveMimeType}
    */
   run: async (
     id: string,
     files: File[],
-    fileConfigs: Record<string, { sheetName?: string; headerRow: number }>
+    fileConfigs: Record<string, {
+      source?: 'local' | 'drive'
+      sheetName?: string
+      headerRow: number
+      driveFileId?: string
+      driveMimeType?: string
+    }>
   ): Promise<RunResult> => {
     const formData = new FormData()
-    
+
     // Add files
     for (const file of files) {
       formData.append('files', file)
     }
-    
+
     // Add file configs as JSON
     formData.append('file_configs', JSON.stringify(fileConfigs))
-    
+
     const response = await fetch(`${API_BASE}/workflows/${id}/run`, {
       ...defaultFetchOptions,
       method: 'POST',
       body: formData,
     })
-    
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Unknown error' }))
       throw new Error(error.detail || `HTTP ${response.status}`)
     }
-    
+
     return response.json()
   },
   
@@ -117,6 +145,12 @@ export const workflowApi = {
    */
   downloadUrl: (workflowId: string, runId: string) =>
     `${API_BASE}/workflows/${workflowId}/download/${runId}`,
+
+  /**
+   * Get full result data for preview and search.
+   */
+  getResultData: (workflowId: string, runId: string) =>
+    fetchJSON<FullResultData>(`/workflows/${workflowId}/results/${runId}`),
 }
 
 // Run API
@@ -157,18 +191,75 @@ export const fileApi = {
       formData.append('sheet_name', sheetName)
     }
     formData.append('header_row', headerRow.toString())
-    
+
     const response = await fetch(`${API_BASE}/files/parse-columns`, {
       ...defaultFetchOptions,
       method: 'POST',
       body: formData,
     })
-    
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Unknown error' }))
       throw new Error(error.detail || `HTTP ${response.status}`)
     }
-    
+
     return response.json()
   },
+}
+
+// Drive API
+export const driveApi = {
+  /** Fetch valid Google access token for Picker initialization */
+  getToken: async (): Promise<{ access_token: string; expires_at: string | null }> => {
+    const response = await fetch(`${API_BASE}/auth/token`, {
+      ...defaultFetchOptions,
+    })
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Not authenticated' }))
+      throw new Error(error.detail || `HTTP ${response.status}`)
+    }
+    return response.json()
+  },
+
+  /** Download and parse a Drive file by ID */
+  downloadFile: (fileId: string, headerRow?: number, sheetName?: string) =>
+    fetchJSON<DriveFileResponse>('/drive/download', {
+      method: 'POST',
+      body: JSON.stringify({
+        file_id: fileId,
+        header_row: headerRow,
+        ...(sheetName && { sheet_name: sheetName }),
+      }),
+    }),
+
+  /** Read a Google Sheet by spreadsheet ID */
+  readSheet: (spreadsheetId: string, rangeName?: string, headerRow?: number) =>
+    fetchJSON<DriveFileResponse>('/drive/read', {
+      method: 'POST',
+      body: JSON.stringify({
+        spreadsheet_id: spreadsheetId,
+        range_name: rangeName,
+        header_row: headerRow,
+      }),
+    }),
+
+  /** Fetch list of sheet tabs for a Google Sheets spreadsheet or Excel file */
+  getSheetTabs: (fileId: string, mimeType?: string) =>
+    fetchJSON<{ tabs: Array<{ title: string; index: number; sheetId: number }> }>(
+      `/drive/sheets/tabs?file_id=${encodeURIComponent(fileId)}${mimeType ? `&mime_type=${encodeURIComponent(mimeType)}` : ''}`
+    ),
+
+  /** Create a new Google Sheet with workflow results */
+  exportCreate: (runId: string, title: string) =>
+    fetchJSON<ExportResponse>('/drive/export/create', {
+      method: 'POST',
+      body: JSON.stringify({ run_id: runId, title }),
+    }),
+
+  /** Update an existing Google Sheet with workflow results */
+  exportUpdate: (runId: string, spreadsheetId: string) =>
+    fetchJSON<ExportResponse>('/drive/export/update', {
+      method: 'POST',
+      body: JSON.stringify({ run_id: runId, spreadsheet_id: spreadsheetId }),
+    }),
 }

@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { X, Pencil, Check, FileSpreadsheet, ChevronDown, Loader2 } from 'lucide-react'
-import { useState } from 'react'
+import { forwardRef, useState } from 'react'
 import { cn } from '../../lib/utils'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
@@ -23,7 +23,7 @@ interface FileCardProps {
 // Available header row options (1-10)
 const HEADER_ROW_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-export function FileCard({
+export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileCard({
   file,
   index,
   onRemove,
@@ -33,7 +33,7 @@ export function FileCard({
   showPreview = true,
   isChangingSheet = false,
   isChangingHeaderRow = false,
-}: FileCardProps) {
+}, ref) {
   const [isEditingName, setIsEditingName] = useState(false)
   const [editName, setEditName] = useState(file.name)
   const [isSheetDropdownOpen, setIsSheetDropdownOpen] = useState(false)
@@ -55,6 +55,7 @@ export function FileCard({
 
   return (
     <motion.div
+      ref={ref}
       layout
       initial={{ opacity: 0, y: 20, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -272,4 +273,4 @@ export function FileCard({
       )}
     </motion.div>
   )
-}
+})

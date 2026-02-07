@@ -1,12 +1,15 @@
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Download, FileSpreadsheet, History, CheckCircle, XCircle, Eye, Trash2 } from 'lucide-react'
+import { Download, FileSpreadsheet, History, CheckCircle, XCircle, Eye, Trash2, Cloud } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { EmptyState } from '../components/ui/EmptyState'
 import { Spinner } from '../components/ui/Spinner'
-import { runApi, workflowApi } from '../lib/api'
+import { FileNamingModal } from '../components/FileNamingModal'
+import { runApi, workflowApi, driveApi } from '../lib/api'
 import { formatDate, formatRelativeTime } from '../lib/utils'
+import { useAuth } from '../context/AuthContext'
 import type { RunStatus } from '../types'
 
 const statusConfig: Record<RunStatus, { label: string; variant: 'default' | 'success' | 'warning' | 'error' | 'info'; icon: typeof CheckCircle }> = {
@@ -17,6 +20,20 @@ const statusConfig: Record<RunStatus, { label: string; variant: 'default' | 'suc
 
 export function HistoryPage() {
   const queryClient = useQueryClient()
+  const { driveConnected } = useAuth()
+
+  // Track which run is currently exporting and which have been exported
+  const [exportingRunId, setExportingRunId] = useState<string | null>(null)
+  const [exportedRuns, setExportedRuns] = useState<Record<string, string>>({})
+
+  // File naming modal state
+  const [namingModal, setNamingModal] = useState<{
+    isOpen: boolean
+    action: 'download' | 'drive'
+    runId: string
+    workflowName: string
+  }>({ isOpen: false, action: 'download', runId: '', workflowName: '' })
+  const [fileName, setFileName] = useState('')
 
   const { data: runs, isLoading: runsLoading } = useQuery({
     queryKey: ['runs'],
@@ -44,8 +61,15 @@ export function HistoryPage() {
 
   const workflowMap = new Map(workflows?.map((w) => [w.id, w.name]) ?? [])
 
-  const handleDownload = (runId: string, type: 'excel' | 'pdf') => {
-    window.open(runApi.downloadUrl(runId, type), '_blank')
+  // Generate default file name
+  const getDefaultFileName = (workflowName: string, createdAt: string) => {
+    const relativeTime = formatRelativeTime(createdAt)
+    return `${workflowName} - ${relativeTime}`
+  }
+
+  const handleDownload = (runId: string, workflowName: string, createdAt: string) => {
+    setFileName(getDefaultFileName(workflowName, createdAt))
+    setNamingModal({ isOpen: true, action: 'download', runId, workflowName })
   }
 
   const handleDelete = (runId: string) => {
@@ -57,6 +81,46 @@ export function HistoryPage() {
   const handleClearAll = () => {
     if (confirm('Are you sure you want to delete ALL run history? This cannot be undone.')) {
       deleteAllMutation.mutate()
+    }
+  }
+
+  const handleExportToDrive = async (runId: string, workflowName: string, createdAt: string) => {
+    setFileName(getDefaultFileName(workflowName, createdAt))
+    setNamingModal({ isOpen: true, action: 'drive', runId, workflowName })
+  }
+
+  const handleNamingConfirm = async (confirmedName: string) => {
+    if (namingModal.action === 'download') {
+      // Download with custom name
+      try {
+        const response = await fetch(runApi.downloadUrl(namingModal.runId, 'excel'), {
+          credentials: 'include',
+        })
+        const blob = await response.blob()
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = confirmedName.endsWith('.xlsx') ? confirmedName : `${confirmedName}.xlsx`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        setNamingModal({ isOpen: false, action: 'download', runId: '', workflowName: '' })
+      } catch (err) {
+        alert(err instanceof Error ? err.message : 'Failed to download file')
+      }
+    } else {
+      // Export to Drive with custom name
+      setExportingRunId(namingModal.runId)
+      try {
+        const exportResponse = await driveApi.exportCreate(namingModal.runId, confirmedName)
+        setExportedRuns(prev => ({ ...prev, [namingModal.runId]: exportResponse.spreadsheet_url }))
+        setNamingModal({ isOpen: false, action: 'download', runId: '', workflowName: '' })
+      } catch (err) {
+        alert(err instanceof Error ? err.message : 'Failed to export to Drive')
+      } finally {
+        setExportingRunId(null)
+      }
     }
   }
 
@@ -107,10 +171,10 @@ export function HistoryPage() {
             const StatusIcon = status.icon
 
             return (
-              <Card key={run.id} className="flex items-center justify-between py-3">
+              <Card key={run.id} className="flex items-center justify-between py-3 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center justify-center w-9 h-9 bg-slate-100 rounded-lg">
-                    <FileSpreadsheet className="w-4 h-4 text-slate-600" />
+                  <div className="flex items-center justify-center w-9 h-9 bg-primary-100 rounded-lg">
+                    <FileSpreadsheet className="w-4 h-4 text-primary-600" />
                   </div>
 
                   <div>
@@ -134,14 +198,46 @@ export function HistoryPage() {
 
                 <div className="flex items-center gap-2">
                   {run.status === 'completed' && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleDownload(run.id, 'excel')}
-                    >
-                      <Download className="w-4 h-4" />
-                      Excel
-                    </Button>
+                    <>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleDownload(run.id, workflowMap.get(run.workflowId) || 'Workflow', run.createdAt)}
+                      >
+                        <Download className="w-4 h-4" />
+                        Excel
+                      </Button>
+                      {exportedRuns[run.id] ? (
+                        <a
+                          href={exportedRuns[run.id]}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
+                        >
+                          <FileSpreadsheet className="w-4 h-4" />
+                          Sheets
+                        </a>
+                      ) : driveConnected ? (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleExportToDrive(run.id, workflowMap.get(run.workflowId) || 'Workflow', run.createdAt)}
+                          disabled={exportingRunId === run.id}
+                        >
+                          {exportingRunId === run.id ? (
+                            <>
+                              <Spinner size="sm" className="mr-2" />
+                              Exporting...
+                            </>
+                          ) : (
+                            <>
+                              <Cloud className="w-4 h-4" />
+                              Export to Drive
+                            </>
+                          )}
+                        </Button>
+                      ) : null}
+                    </>
                   )}
                   <Button
                     variant="ghost"
@@ -158,6 +254,15 @@ export function HistoryPage() {
           })}
         </div>
       )}
+
+      <FileNamingModal
+        isOpen={namingModal.isOpen}
+        onClose={() => setNamingModal({ isOpen: false, action: 'download', runId: '', workflowName: '' })}
+        onConfirm={handleNamingConfirm}
+        defaultName={fileName}
+        actionLabel={namingModal.action === 'download' ? 'Download' : 'Export to Drive'}
+        isLoading={namingModal.action === 'drive' ? exportingRunId === namingModal.runId : false}
+      />
     </div>
   )
 }
