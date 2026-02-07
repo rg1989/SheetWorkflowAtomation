@@ -131,3 +131,129 @@ async def read_sheet_to_df(
 
     except HttpError as e:
         _handle_drive_error(e, spreadsheet_id)
+
+
+def dataframe_to_sheets_values(df: pd.DataFrame) -> list[list]:
+    """
+    Convert DataFrame to Google Sheets values format.
+
+    Args:
+        df: pandas DataFrame to convert
+
+    Returns:
+        list[list]: Google Sheets values (list of lists) with headers as first row
+
+    Notes:
+        - First row contains column headers
+        - NaN values are replaced with None for JSON serialization
+    """
+    # Start with headers
+    values = [df.columns.tolist()]
+
+    # Convert data rows, replacing NaN with None
+    for _, row in df.iterrows():
+        row_values = []
+        for cell in row:
+            if pd.isna(cell):
+                row_values.append(None)
+            else:
+                row_values.append(cell)
+        values.append(row_values)
+
+    return values
+
+
+@drive_retry
+async def update_sheet_values(
+    sheets_service,
+    spreadsheet_id: str,
+    df: pd.DataFrame,
+    range_name: str = "Sheet1!A1"
+) -> dict:
+    """
+    Update Google Sheet with DataFrame values.
+
+    Args:
+        sheets_service: Google Sheets API service object
+        spreadsheet_id: Target spreadsheet ID
+        df: pandas DataFrame to write
+        range_name: A1 notation range (default: "Sheet1!A1")
+
+    Returns:
+        dict: API response containing updatedCells, updatedRows, etc.
+
+    Raises:
+        HTTPException: On permission errors, file not found, or API errors
+    """
+    try:
+        # Convert DataFrame to Sheets values format
+        values = dataframe_to_sheets_values(df)
+
+        # Update the sheet
+        result = await asyncio.to_thread(
+            lambda: sheets_service.spreadsheets().values().update(
+                spreadsheetId=spreadsheet_id,
+                range=range_name,
+                valueInputOption="USER_ENTERED",
+                body={"values": values}
+            ).execute()
+        )
+
+        updated_cells = result.get("updatedCells", 0)
+        logger.info("Updated %d cells in spreadsheet %s", updated_cells, spreadsheet_id)
+        return result
+
+    except HttpError as e:
+        _handle_drive_error(e, spreadsheet_id)
+
+
+@drive_retry
+async def create_spreadsheet(
+    sheets_service,
+    title: str,
+    df: pd.DataFrame
+) -> dict:
+    """
+    Create new Google Sheet with DataFrame values.
+
+    Args:
+        sheets_service: Google Sheets API service object
+        title: Title for the new spreadsheet
+        df: pandas DataFrame to write
+
+    Returns:
+        dict: {"spreadsheetId": str, "spreadsheetUrl": str}
+
+    Raises:
+        HTTPException: On permission errors or API errors
+    """
+    try:
+        # Create empty spreadsheet
+        spreadsheet_body = {
+            "properties": {
+                "title": title
+            }
+        }
+
+        result = await asyncio.to_thread(
+            lambda: sheets_service.spreadsheets().create(
+                body=spreadsheet_body,
+                fields="spreadsheetId,spreadsheetUrl"
+            ).execute()
+        )
+
+        spreadsheet_id = result["spreadsheetId"]
+        spreadsheet_url = result["spreadsheetUrl"]
+
+        logger.info("Created spreadsheet %s: %s", spreadsheet_id, title)
+
+        # Write data to the new spreadsheet
+        await update_sheet_values(sheets_service, spreadsheet_id, df)
+
+        return {
+            "spreadsheetId": spreadsheet_id,
+            "spreadsheetUrl": spreadsheet_url
+        }
+
+    except HttpError as e:
+        _handle_drive_error(e, "new_spreadsheet")
