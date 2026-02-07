@@ -13,6 +13,8 @@ interface DriveFilePickerProps {
     driveFileId: string
     driveMimeType: string
     driveModifiedTime?: string
+    availableSheets?: string[]
+    sheetName?: string
   }) => void
   onError?: (error: string) => void
   disabled?: boolean
@@ -42,6 +44,20 @@ export function DriveFilePicker({ onFileReady, onError, disabled }: DriveFilePic
         }
       })
 
+      // Fetch sheet tabs if this is a Google Sheets file
+      let availableSheets: string[] | undefined
+      let sheetName: string | undefined
+      if (pickerFile.mimeType === 'application/vnd.google-apps.spreadsheet') {
+        try {
+          const tabsResult = await driveApi.getSheetTabs(pickerFile.id)
+          availableSheets = tabsResult.tabs.map(t => t.title)
+          sheetName = availableSheets[0] // Default to first tab
+        } catch (err) {
+          // If fetching tabs fails, continue without them (user can still use the file)
+          console.warn('Failed to fetch sheet tabs:', err)
+        }
+      }
+
       onFileReady({
         name: result.file_metadata.name.replace(/\.[^/.]+$/, ''),
         filename: result.file_metadata.name,
@@ -52,6 +68,8 @@ export function DriveFilePicker({ onFileReady, onError, disabled }: DriveFilePic
         driveModifiedTime: pickerFile.lastEditedUtc
           ? new Date(pickerFile.lastEditedUtc).toISOString()
           : result.file_metadata.modified_time,
+        availableSheets,
+        sheetName,
       })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load Drive file'

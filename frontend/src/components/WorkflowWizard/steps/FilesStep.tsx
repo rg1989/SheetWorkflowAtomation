@@ -20,6 +20,8 @@ interface FilesStepProps {
     driveFileId: string
     driveMimeType: string
     driveModifiedTime?: string
+    availableSheets?: string[]
+    sheetName?: string
   }) => void
   onRemoveFile: (fileId: string) => void
   onUpdateFileName: (fileId: string, name: string) => void

@@ -116,6 +116,8 @@ export function WorkflowWizard({ initialState, onSave, isEditMode = false }: Wor
       driveFileId: string
       driveMimeType: string
       driveModifiedTime?: string
+      availableSheets?: string[]
+      sheetName?: string
     }) => {
       setFiles((prev) => {
         if (prev.length >= MAX_FILES) {
@@ -138,6 +140,8 @@ export function WorkflowWizard({ initialState, onSave, isEditMode = false }: Wor
           driveFileId: params.driveFileId,
           driveMimeType: params.driveMimeType,
           driveModifiedTime: params.driveModifiedTime,
+          availableSheets: params.availableSheets,
+          sheetName: params.sheetName,
           // No originalFile for Drive files -- re-parsing goes through backend
         }
 
