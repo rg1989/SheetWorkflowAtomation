@@ -6,18 +6,22 @@ and getting file metadata. Exposes Phase 2's service layer to the frontend.
 """
 import math
 import logging
+import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from pydantic import BaseModel, Field
+import pandas as pd
 
 from app.auth.deps import get_current_user
 from app.db.database import get_db
-from app.db.models import UserDB
+from app.db.models import UserDB, RunDB
+from app.models.run import RunStatus
 from app.services.google_auth import build_drive_service, build_sheets_service
 from app.services.drive import download_drive_file_to_df, get_drive_file_metadata
-from app.services.sheets import read_sheet_to_df
+from app.services.sheets import read_sheet_to_df, create_spreadsheet, update_sheet_values
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -55,6 +59,26 @@ class DriveFileResponse(BaseModel):
     row_count: int
     columns: list[str]
     sample_data: list[dict]
+
+
+class ExportCreateRequest(BaseModel):
+    """Request to create new Google Sheet with workflow results."""
+    run_id: str = Field(description="Workflow run ID whose output to export")
+    title: str = Field(description="Title for the new Google Sheet")
+
+
+class ExportUpdateRequest(BaseModel):
+    """Request to update existing Google Sheet with workflow results."""
+    run_id: str = Field(description="Workflow run ID whose output to export")
+    spreadsheet_id: str = Field(description="Target Google Sheet ID to overwrite")
+
+
+class ExportResponse(BaseModel):
+    """Response from export operation."""
+    success: bool
+    spreadsheet_id: str
+    spreadsheet_url: str
+    updated_cells: int
 
 
 # Helper Functions
@@ -214,3 +238,134 @@ async def read_google_sheet(
     except ValueError as e:
         # Unsupported operation or file type
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/export/create", response_model=ExportResponse)
+async def export_create(
+    request: ExportCreateRequest,
+    current_user: UserDB = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Create new Google Sheet with workflow results.
+
+    Args:
+        request: ExportCreateRequest with run_id and title
+        current_user: Authenticated user
+        db: Database session
+
+    Returns:
+        ExportResponse: Success status, spreadsheet ID, URL, and cell count
+
+    Raises:
+        HTTPException 400: Run not completed
+        HTTPException 401: User not authenticated or Drive not connected
+        HTTPException 403: Access denied
+        HTTPException 404: Run or output file not found
+    """
+    try:
+        # Query run by ID and enforce ownership
+        result = await db.execute(
+            select(RunDB).where(
+                RunDB.id == request.run_id,
+                RunDB.user_id == current_user.id
+            )
+        )
+        run = result.scalar_one_or_none()
+
+        if not run:
+            raise HTTPException(status_code=404, detail="Run not found")
+
+        if run.status != RunStatus.COMPLETED:
+            raise HTTPException(status_code=400, detail="Run not completed")
+
+        if not run.output_path or not os.path.exists(run.output_path):
+            raise HTTPException(status_code=404, detail="Output file not found")
+
+        # Read output file
+        df = pd.read_excel(run.output_path, engine="openpyxl")
+
+        # Build Sheets service
+        sheets_service = await build_sheets_service(current_user, db)
+
+        # Create spreadsheet with data
+        result = await create_spreadsheet(sheets_service, request.title, df)
+
+        return ExportResponse(
+            success=True,
+            spreadsheet_id=result["spreadsheetId"],
+            spreadsheet_url=result["spreadsheetUrl"],
+            updated_cells=len(df) * len(df.columns)
+        )
+
+    except ValueError as e:
+        # Drive not connected
+        raise HTTPException(status_code=401, detail=str(e))
+
+
+@router.post("/export/update", response_model=ExportResponse)
+async def export_update(
+    request: ExportUpdateRequest,
+    current_user: UserDB = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update existing Google Sheet with workflow results.
+
+    Args:
+        request: ExportUpdateRequest with run_id and spreadsheet_id
+        current_user: Authenticated user
+        db: Database session
+
+    Returns:
+        ExportResponse: Success status, spreadsheet ID, URL, and cell count
+
+    Raises:
+        HTTPException 400: Run not completed
+        HTTPException 401: User not authenticated or Drive not connected
+        HTTPException 403: Access denied or read-only sheet
+        HTTPException 404: Run, output file, or spreadsheet not found
+    """
+    try:
+        # Query run by ID and enforce ownership
+        result = await db.execute(
+            select(RunDB).where(
+                RunDB.id == request.run_id,
+                RunDB.user_id == current_user.id
+            )
+        )
+        run = result.scalar_one_or_none()
+
+        if not run:
+            raise HTTPException(status_code=404, detail="Run not found")
+
+        if run.status != RunStatus.COMPLETED:
+            raise HTTPException(status_code=400, detail="Run not completed")
+
+        if not run.output_path or not os.path.exists(run.output_path):
+            raise HTTPException(status_code=404, detail="Output file not found")
+
+        # Read output file
+        df = pd.read_excel(run.output_path, engine="openpyxl")
+
+        # Build services
+        sheets_service = await build_sheets_service(current_user, db)
+        drive_service = await build_drive_service(current_user, db)
+
+        # Update spreadsheet with data
+        update_result = await update_sheet_values(sheets_service, request.spreadsheet_id, df)
+
+        # Get spreadsheet URL
+        metadata = await get_drive_file_metadata(drive_service, request.spreadsheet_id)
+        spreadsheet_url = metadata.get("webViewLink", "")
+
+        return ExportResponse(
+            success=True,
+            spreadsheet_id=request.spreadsheet_id,
+            spreadsheet_url=spreadsheet_url,
+            updated_cells=update_result.get("updatedCells", 0)
+        )
+
+    except ValueError as e:
+        # Drive not connected
+        raise HTTPException(status_code=401, detail=str(e))
