@@ -362,3 +362,11 @@ export interface DriveRunFileState {
   selectedTab?: string
   isLoading?: boolean
 }
+
+/** Response from Drive export operations */
+export interface ExportResponse {
+  success: boolean
+  spreadsheet_id: string
+  spreadsheet_url: string
+  updated_cells: number
+}

@@ -6,6 +6,7 @@ import type {
   FileParseResult,
   RunResult,
   DriveFileResponse,
+  ExportResponse,
 } from '../types'
 
 const API_BASE = '/api'
@@ -235,4 +236,18 @@ export const driveApi = {
     fetchJSON<{ tabs: Array<{ title: string; index: number; sheetId: number }> }>(
       `/drive/sheets/tabs?spreadsheet_id=${encodeURIComponent(spreadsheetId)}`
     ),
+
+  /** Create a new Google Sheet with workflow results */
+  exportCreate: (runId: string, title: string) =>
+    fetchJSON<ExportResponse>('/drive/export/create', {
+      method: 'POST',
+      body: JSON.stringify({ run_id: runId, title }),
+    }),
+
+  /** Update an existing Google Sheet with workflow results */
+  exportUpdate: (runId: string, spreadsheetId: string) =>
+    fetchJSON<ExportResponse>('/drive/export/update', {
+      method: 'POST',
+      body: JSON.stringify({ run_id: runId, spreadsheet_id: spreadsheetId }),
+    }),
 }
