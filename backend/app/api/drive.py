@@ -21,7 +21,7 @@ from app.db.models import UserDB, RunDB
 from app.models.run import RunStatus
 from app.services.google_auth import build_drive_service, build_sheets_service
 from app.services.drive import download_drive_file_to_df, get_drive_file_metadata
-from app.services.sheets import read_sheet_to_df, create_spreadsheet, update_sheet_values
+from app.services.sheets import read_sheet_to_df, create_spreadsheet, update_sheet_values, get_sheet_tabs
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -246,6 +246,42 @@ async def read_google_sheet(
     except ValueError as e:
         # Unsupported operation or file type
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/sheets/tabs")
+async def list_sheet_tabs(
+    spreadsheet_id: str,
+    current_user: UserDB = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    List all sheet tabs in a Google Sheets spreadsheet.
+
+    Args:
+        spreadsheet_id: Google Sheets spreadsheet ID
+        current_user: Authenticated user
+        db: Database session
+
+    Returns:
+        dict: {"tabs": [{"title": str, "index": int, "sheetId": int}, ...]}
+
+    Raises:
+        HTTPException 401: User not authenticated or Drive not connected
+        HTTPException 403: Access denied to spreadsheet
+        HTTPException 404: Spreadsheet not found
+    """
+    try:
+        # Build Sheets service
+        sheets_service = await build_sheets_service(current_user, db)
+
+        # Get sheet tabs
+        tabs = await get_sheet_tabs(sheets_service, spreadsheet_id)
+
+        return {"tabs": tabs}
+
+    except ValueError as e:
+        # Drive not connected
+        raise HTTPException(status_code=401, detail=str(e))
 
 
 @router.post("/export/create", response_model=ExportResponse)
