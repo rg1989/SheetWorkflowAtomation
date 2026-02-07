@@ -107,6 +107,47 @@ export function WorkflowWizard({ initialState, onSave, isEditMode = false }: Wor
     []
   )
 
+  const handleAddDriveFile = useCallback(
+    (params: {
+      name: string
+      filename: string
+      columns: ColumnInfo[]
+      sampleData?: Record<string, unknown>[]
+      driveFileId: string
+      driveMimeType: string
+      driveModifiedTime?: string
+    }) => {
+      setFiles((prev) => {
+        if (prev.length >= MAX_FILES) {
+          setError(`Maximum of ${MAX_FILES} files allowed`)
+          return prev
+        }
+
+        const usedColorIndices = prev.map((f) => f.colorIndex)
+        const colorIndex = getNextColorIndex(usedColorIndices)
+
+        const newFile: FileDefinition = {
+          id: generateId(),
+          name: params.name,
+          filename: params.filename,
+          colorIndex,
+          columns: params.columns,
+          sampleData: params.sampleData,
+          headerRow: 1,
+          source: 'drive',
+          driveFileId: params.driveFileId,
+          driveMimeType: params.driveMimeType,
+          driveModifiedTime: params.driveModifiedTime,
+          // No originalFile for Drive files -- re-parsing goes through backend
+        }
+
+        setError(null)
+        return [...prev, newFile]
+      })
+    },
+    []
+  )
+
   const handleRemoveFile = useCallback((fileId: string) => {
     setFiles((prev) => prev.filter((f) => f.id !== fileId))
     // Also remove any output columns that reference this file
@@ -336,6 +377,7 @@ export function WorkflowWizard({ initialState, onSave, isEditMode = false }: Wor
           <FilesStep
             files={files}
             onAddFile={handleAddFile}
+            onAddDriveFile={handleAddDriveFile}
             onRemoveFile={handleRemoveFile}
             onUpdateFileName={handleUpdateFileName}
             onUpdateFileSheet={handleUpdateFileSheet}
