@@ -1,4 +1,5 @@
 """Auth routes: Google OAuth login/callback, me, logout."""
+import logging
 import os
 
 from fastapi import APIRouter, Request, Depends
@@ -6,14 +7,11 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.auth.config import (
-    GOOGLE_CLIENT_ID,
-    GOOGLE_CLIENT_SECRET,
-    OAUTH_REDIRECT_BASE,
-)
 from app.auth.deps import get_current_user
 from app.db.database import get_db
 from app.db.models import UserDB
+
+logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -21,15 +19,26 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 _oauth = None
 
 
+def _get_credentials():
+    """Read OAuth credentials from environment at call time (not import time)."""
+    client_id = os.environ.get("GOOGLE_CLIENT_ID", "")
+    client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+    redirect_base = os.environ.get("OAUTH_REDIRECT_BASE", "")
+    if not redirect_base and os.environ.get("RAILWAY_PUBLIC_DOMAIN"):
+        redirect_base = f"https://{os.environ['RAILWAY_PUBLIC_DOMAIN']}"
+    return client_id, client_secret, redirect_base
+
+
 def get_oauth():
     global _oauth
     if _oauth is None:
         from authlib.integrations.starlette_client import OAuth
+        client_id, client_secret, _ = _get_credentials()
         oauth = OAuth()
         oauth.register(
             name="google",
-            client_id=GOOGLE_CLIENT_ID,
-            client_secret=GOOGLE_CLIENT_SECRET,
+            client_id=client_id,
+            client_secret=client_secret,
             server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
             client_kwargs={"scope": "openid email profile"},
         )
@@ -40,9 +49,15 @@ def get_oauth():
 @router.get("/login")
 async def login(request: Request):
     """Redirect to Google consent screen."""
-    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+    client_id, client_secret, redirect_base = _get_credentials()
+    if not client_id or not client_secret:
+        logger.error(
+            "OAuth not configured – GOOGLE_CLIENT_ID=%s GOOGLE_CLIENT_SECRET=%s",
+            "set" if client_id else "MISSING",
+            "set" if client_secret else "MISSING",
+        )
         return RedirectResponse(url="/?error=oauth_not_configured", status_code=302)
-    base = OAUTH_REDIRECT_BASE.rstrip("/") if OAUTH_REDIRECT_BASE else str(request.base_url).rstrip("/")
+    base = redirect_base.rstrip("/") if redirect_base else str(request.base_url).rstrip("/")
     redirect_uri = f"{base}/api/auth/callback"
     oauth = get_oauth()
     return await oauth.google.authorize_redirect(request, redirect_uri)
