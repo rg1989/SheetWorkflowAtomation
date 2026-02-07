@@ -42,6 +42,7 @@ interface FileSlotCardProps {
   onHeaderRowChange: (expectedFile: FileDefinition, uploaded: UploadedFileState, newHeaderRow: number) => void
   onDriveFileSelect: (expectedFile: FileDefinition, pickedFile: DrivePickerFile) => void
   onDriveTabChange: (expectedFile: FileDefinition, driveFile: DriveRunFileState, newTab: string) => void
+  onDriveHeaderRowChange: (expectedFile: FileDefinition, driveFile: DriveRunFileState, newHeaderRow: number) => void
 }
 
 function FileSlotCard({
@@ -58,6 +59,7 @@ function FileSlotCard({
   onHeaderRowChange,
   onDriveFileSelect,
   onDriveTabChange,
+  onDriveHeaderRowChange,
 }: FileSlotCardProps) {
   const { openPicker: openDrivePicker, isLoading: isPickerLoading } = useDriveFilePicker({
     onSelect: (pickedFile) => onDriveFileSelect(expectedFile, pickedFile),
@@ -217,14 +219,42 @@ function FileSlotCard({
                 </span>
               </div>
 
-              {/* Tab selector for Google Sheets */}
-              {driveFile.availableTabs && driveFile.availableTabs.length > 1 && (
-                <div className="flex items-center gap-2 mt-2">
-                  <label className="text-xs text-slate-500">Tab:</label>
+              {/* Tab and Header Row selectors */}
+              <div className="flex flex-wrap items-center gap-3 mt-2">
+                {/* Tab selector for Google Sheets */}
+                {driveFile.availableTabs && driveFile.availableTabs.length > 1 && (
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-slate-500">Tab:</label>
+                    <div className="relative">
+                      <select
+                        value={driveFile.selectedTab || ''}
+                        onChange={(e) => onDriveTabChange(expectedFile, driveFile, e.target.value)}
+                        disabled={driveFile.isLoading}
+                        className={cn(
+                          'appearance-none text-xs px-2 py-1 pr-7 rounded border bg-white',
+                          'focus:outline-none focus:ring-2 focus:ring-primary-500',
+                          driveFile.isLoading && 'opacity-50 cursor-not-allowed',
+                          driveFile.validated ? 'border-green-300' : 'border-slate-300'
+                        )}
+                      >
+                        {driveFile.availableTabs.map((tab) => (
+                          <option key={tab.title} value={tab.title}>
+                            {tab.title}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Header row selector */}
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-slate-500">Header row:</label>
                   <div className="relative">
                     <select
-                      value={driveFile.selectedTab || ''}
-                      onChange={(e) => onDriveTabChange(expectedFile, driveFile, e.target.value)}
+                      value={driveFile.headerRow ?? 1}
+                      onChange={(e) => onDriveHeaderRowChange(expectedFile, driveFile, parseInt(e.target.value))}
                       disabled={driveFile.isLoading}
                       className={cn(
                         'appearance-none text-xs px-2 py-1 pr-7 rounded border bg-white',
@@ -233,19 +263,21 @@ function FileSlotCard({
                         driveFile.validated ? 'border-green-300' : 'border-slate-300'
                       )}
                     >
-                      {driveFile.availableTabs.map((tab) => (
-                        <option key={tab.title} value={tab.title}>
-                          {tab.title}
+                      {HEADER_ROW_OPTIONS.map((row) => (
+                        <option key={row} value={row}>
+                          Row {row}
                         </option>
                       ))}
                     </select>
                     <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
                   </div>
-                  {driveFile.isLoading && (
-                    <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
-                  )}
                 </div>
-              )}
+
+                {/* Loading indicator */}
+                {driveFile.isLoading && (
+                  <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                )}
+              </div>
 
               {/* Preview data */}
               {driveFile.sampleData && driveFile.sampleData.length > 0 && (
@@ -439,7 +471,7 @@ export function RunWorkflowPage() {
       // 6. Validate columns against expected columns (reuse validateFileColumns)
       const validated = validateFileColumns(columns, expectedFile.columns || [])
 
-      // 7. Store complete state
+      // 7. Store complete state (including originalFile for re-fetching)
       setDriveFiles(prev => ({
         ...prev,
         [expectedFile.id]: {
@@ -453,6 +485,8 @@ export function RunWorkflowPage() {
           rowCount: downloadResult.row_count,
           availableTabs,
           selectedTab: availableTabs?.[0]?.title,
+          headerRow: 1, // Default to row 1 as header
+          originalFile: pickedFile, // Store for re-fetching with different settings
           isLoading: false,
           error: validated ? undefined : getMissingColumnsError(columns, expectedFile.columns || []),
         }
@@ -660,6 +694,73 @@ export function RunWorkflowPage() {
     }
   }, [validateFileColumns, getMissingColumnsError])
 
+  // Handle Drive header row change
+  const handleDriveHeaderRowChange = useCallback(async (
+    expectedFile: FileDefinition,
+    driveFile: DriveRunFileState,
+    newHeaderRow: number
+  ) => {
+    // Check if we have original file reference
+    if (!driveFile.originalFile) {
+      alert('Cannot modify Drive file settings. Please re-select the file.')
+      return
+    }
+
+    setDriveFiles(prev => ({
+      ...prev,
+      [expectedFile.id]: { ...driveFile, isLoading: true }
+    }))
+
+    try {
+      // For Google Sheets with tabs, use readSheet with the current tab
+      // For other files or default tab, use downloadFile
+      let readResult: Awaited<ReturnType<typeof driveApi.readSheet>> | Awaited<ReturnType<typeof driveApi.downloadFile>>
+
+      if (driveFile.driveMimeType === 'application/vnd.google-apps.spreadsheet' && driveFile.selectedTab) {
+        // Use readSheet for Google Sheets with specific tab and header row
+        readResult = await driveApi.readSheet(driveFile.driveFileId, driveFile.selectedTab, newHeaderRow)
+      } else {
+        // Use downloadFile for other file types with header row
+        readResult = await driveApi.downloadFile(driveFile.driveFileId, newHeaderRow)
+      }
+
+      // Convert columns from string[] to ColumnInfo[]
+      const columns: ColumnInfo[] = readResult.columns.map(col => ({
+        name: col,
+        type: 'text' as const,
+        sampleValues: [],
+      }))
+
+      // Validate columns
+      const validated = validateFileColumns(columns, expectedFile.columns || [])
+
+      setDriveFiles(prev => ({
+        ...prev,
+        [expectedFile.id]: {
+          ...driveFile,
+          headerRow: newHeaderRow,
+          columns,
+          sampleData: readResult.sample_data,
+          rowCount: readResult.row_count,
+          validated,
+          error: validated ? undefined : getMissingColumnsError(columns, expectedFile.columns || []),
+          isLoading: false,
+        }
+      }))
+    } catch (err) {
+      setDriveFiles(prev => ({
+        ...prev,
+        [expectedFile.id]: {
+          ...driveFile,
+          headerRow: newHeaderRow,
+          validated: false,
+          error: err instanceof Error ? err.message : 'Failed to update header row',
+          isLoading: false,
+        }
+      }))
+    }
+  }, [validateFileColumns, getMissingColumnsError])
+
   const allFilesUploaded = workflow?.files?.every(f => uploadedFiles[f.id]?.validated || driveFiles[f.id]?.validated) ?? false
 
   const handleRun = useCallback(async () => {
@@ -698,7 +799,7 @@ export function RunWorkflowPage() {
           fileConfigs[expectedFile.id] = {
             source: 'drive',
             sheetName: driveFile.selectedTab,
-            headerRow: 1, // Drive files always use row 1 as header
+            headerRow: driveFile.headerRow ?? 1, // Use selected header row, default to 1
             driveFileId: driveFile.driveFileId,
             driveMimeType: driveFile.driveMimeType,
           }
@@ -824,6 +925,7 @@ export function RunWorkflowPage() {
                 onHeaderRowChange={handleHeaderRowChange}
                 onDriveFileSelect={handleDriveFileSelect}
                 onDriveTabChange={handleDriveTabChange}
+                onDriveHeaderRowChange={handleDriveHeaderRowChange}
               />
             )
           })}

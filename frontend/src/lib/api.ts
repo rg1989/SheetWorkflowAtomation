@@ -215,19 +215,20 @@ export const driveApi = {
   },
 
   /** Download and parse a Drive file by ID */
-  downloadFile: (fileId: string) =>
+  downloadFile: (fileId: string, headerRow?: number) =>
     fetchJSON<DriveFileResponse>('/drive/download', {
       method: 'POST',
-      body: JSON.stringify({ file_id: fileId }),
+      body: JSON.stringify({ file_id: fileId, header_row: headerRow }),
     }),
 
   /** Read a Google Sheet by spreadsheet ID */
-  readSheet: (spreadsheetId: string, rangeName?: string) =>
+  readSheet: (spreadsheetId: string, rangeName?: string, headerRow?: number) =>
     fetchJSON<DriveFileResponse>('/drive/read', {
       method: 'POST',
       body: JSON.stringify({
         spreadsheet_id: spreadsheetId,
         range_name: rangeName,
+        header_row: headerRow,
       }),
     }),
 

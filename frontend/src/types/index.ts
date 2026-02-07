@@ -360,6 +360,8 @@ export interface DriveRunFileState {
   rowCount?: number
   availableTabs?: Array<{ title: string; index: number; sheetId: number }>
   selectedTab?: string
+  headerRow?: number
+  originalFile?: DrivePickerFile  // Preserve original picker file for re-fetching
   isLoading?: boolean
 }
 

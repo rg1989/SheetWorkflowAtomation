@@ -33,12 +33,14 @@ router = APIRouter()
 class DownloadRequest(BaseModel):
     """Request model for Drive file download."""
     file_id: str = Field(description="Google Drive file ID")
+    header_row: Optional[int] = Field(None, description="Which row contains headers (1-indexed, default: 1)")
 
 
 class SheetsReadRequest(BaseModel):
     """Request model for Google Sheets read."""
     spreadsheet_id: str = Field(description="Google Sheets spreadsheet ID")
     range_name: Optional[str] = Field(None, description="A1 notation range, e.g. 'Sheet1!A1:D10'")
+    header_row: Optional[int] = Field(None, description="Which row contains headers (1-indexed, default: 1)")
 
 
 class FileMetadata(BaseModel):
@@ -147,11 +149,14 @@ async def download_drive_file(
         metadata = await get_drive_file_metadata(drive_service, request.file_id)
 
         # Download and parse file
+        # Convert 1-indexed frontend header_row to 0-indexed pandas header_row
+        header_row_param = (request.header_row - 1) if request.header_row else 0
         df = await download_drive_file_to_df(
             drive_service,
             request.file_id,
             mime_type=metadata["mimeType"],
-            sheets_service=sheets_service
+            sheets_service=sheets_service,
+            header_row=header_row_param
         )
 
         # Extract owner email
@@ -215,10 +220,13 @@ async def read_google_sheet(
         metadata = await get_drive_file_metadata(drive_service, request.spreadsheet_id)
 
         # Read sheet via Sheets API
+        # Convert 1-indexed frontend header_row to 0-indexed pandas header_row
+        header_row_param = (request.header_row - 1) if request.header_row else 0
         df = await read_sheet_to_df(
             sheets_service,
             request.spreadsheet_id,
-            range_name=request.range_name or ""
+            range_name=request.range_name or "",
+            header_row=header_row_param
         )
 
         # Extract owner email

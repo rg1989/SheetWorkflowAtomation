@@ -60,7 +60,8 @@ async def get_sheet_tabs(sheets_service, spreadsheet_id: str) -> list[dict]:
 async def read_sheet_to_df(
     sheets_service,
     spreadsheet_id: str,
-    range_name: str = ""
+    range_name: str = "",
+    header_row: int = 0
 ) -> pd.DataFrame:
     """
     Read Google Sheet to pandas DataFrame via Sheets API v4.
@@ -69,9 +70,10 @@ async def read_sheet_to_df(
         sheets_service: Google Sheets API service object
         spreadsheet_id: Spreadsheet ID
         range_name: A1 notation range (e.g., "Sheet1!A1:D10"). If empty, reads first sheet.
+        header_row: Which row to use as header (0-indexed, default: 0 = first row)
 
     Returns:
-        pd.DataFrame: DataFrame with first row as column headers, stripped whitespace
+        pd.DataFrame: DataFrame with specified row as column headers, stripped whitespace
 
     Raises:
         HTTPException: On permission errors, file not found, or API errors
@@ -109,20 +111,25 @@ async def read_sheet_to_df(
             logger.info("Sheet is empty, returning empty DataFrame")
             return pd.DataFrame()
 
-        if len(values) == 1:
+        if len(values) <= header_row:
+            # Not enough rows to reach the header row
+            logger.info("Sheet has only %d rows, but header_row is %d", len(values), header_row)
+            return pd.DataFrame()
+
+        if len(values) == header_row + 1:
             # Only headers, no data rows
-            headers = [str(col).strip() for col in values[0]]
+            headers = [str(col).strip() for col in values[header_row]]
             logger.info("Sheet has only headers (%d columns), no data rows", len(headers))
             return pd.DataFrame(columns=headers)
 
         # Normal case: headers + data rows
-        headers = [str(col).strip() for col in values[0]]
+        headers = [str(col).strip() for col in values[header_row]]
         max_cols = len(headers)
 
         # Pad ragged rows with None to match header length
         padded_rows = [
             row + [None] * (max_cols - len(row))
-            for row in values[1:]
+            for row in values[header_row + 1:]
         ]
 
         df = pd.DataFrame(padded_rows, columns=headers)
