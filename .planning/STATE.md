@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 Phase: 6 of 6 (All phases complete)
 Plan: N/A
 Status: Milestone execution complete
-Last activity: 2026-02-07 — Completed Phase 5 (Workflow Integration) - Drive files work as workflow inputs with mixed-source execution
+Last activity: 2026-02-07 — Completed quick task 002: Filter Drive picker to Sheets only + style UI to match app design
 
 Progress: [██████████] 100%
 
@@ -110,6 +110,12 @@ None yet.
 - ~~Token encryption key management: Need to decide if deriving key from SESSION_SECRET_KEY or using separate TOKEN_ENCRYPTION_KEY (research flags this but doesn't specify strategy)~~ **RESOLVED** - Implemented both: TOKEN_ENCRYPTION_KEY env var with SESSION_SECRET_KEY fallback using PBKDF2HMAC
 - Railway OAuth redirect URI: Must validate that RAILWAY_PUBLIC_DOMAIN env var exposes domain correctly for OAuth callbacks
 - OAuth verification timeline: Google approval for sensitive scopes takes 1-4 weeks—should start privacy policy creation before Phase 1 completion
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 002 | Filter Drive picker to Sheets only + style UI to match app design | 2026-02-07 | 8e25f3e | [002-limit-visible-files-we-can-select-in-dri](./quick/002-limit-visible-files-we-can-select-in-dri/) |
 
 ## Session Continuity
 
