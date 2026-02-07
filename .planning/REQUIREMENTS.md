@@ -58,7 +58,28 @@
 
 ## Traceability
 
-Requirements will be mapped to phases in ROADMAP.md during roadmap creation.
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| AUTH-01 | Phase 1 | Pending |
+| AUTH-02 | Phase 1 | Pending |
+| AUTH-03 | Phase 1 | Pending |
+| SELECT-01 | Phase 4 | Pending |
+| SELECT-02 | Phase 3 | Pending |
+| SELECT-03 | Phase 4 | Pending |
+| SELECT-04 | Phase 4 | Pending |
+| INPUT-01 | Phase 2 | Pending |
+| INPUT-02 | Phase 2 | Pending |
+| INPUT-03 | Phase 2 | Pending |
+| INPUT-04 | Phase 5 | Pending |
+| INPUT-05 | Phase 5 | Pending |
+| INPUT-06 | Phase 5 | Pending |
+| OUTPUT-01 | Phase 6 | Pending |
+| OUTPUT-02 | Phase 6 | Pending |
+| OUTPUT-03 | Phase 6 | Pending |
+| ERROR-01 | Phase 2 | Pending |
+| ERROR-02 | Phase 2 | Pending |
+
+**Coverage:** 17/17 v1 requirements mapped (100%)
 
 ---
 *Last updated: 2026-02-07*
