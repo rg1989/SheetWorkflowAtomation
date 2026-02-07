@@ -4,12 +4,13 @@ A local workflow runner for Excel file operations.
 """
 from contextlib import asynccontextmanager
 from pathlib import Path
+import logging
 import os
 import sys
 
 from dotenv import load_dotenv
 
-# Load .env before any config reads os.environ
+# Load .env before any config reads os.environ (silently ignored if missing)
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 from fastapi import FastAPI, Request
@@ -22,6 +23,8 @@ from app.db.database import create_tables
 from app.api import workflows, runs, files
 from app.auth import router as auth_router
 from app.auth.config import SESSION_SECRET_KEY
+
+logger = logging.getLogger("uvicorn.error")
 
 
 # Determine base directory (works for both development and bundled app)
@@ -50,8 +53,24 @@ async def lifespan(app: FastAPI):
     # Ensure data directories exist
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
-    
+
     await create_tables()
+
+    # Startup diagnostics (visible in Railway deploy logs)
+    logger.info("=== SheetWorkflowAutomation startup ===")
+    logger.info(f"  STATIC_DIR : {STATIC_DIR}  (exists={STATIC_DIR.exists()})")
+    logger.info(f"  DATA_DIR   : {DATA_DIR}")
+    logger.info(f"  Production : {_is_production}")
+    logger.info(f"  PORT       : {os.environ.get('PORT', 'not set')}")
+    logger.info(f"  RAILWAY_PUBLIC_DOMAIN : {os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'not set')}")
+    logger.info(f"  OAUTH configured      : {bool(os.environ.get('GOOGLE_CLIENT_ID'))}")
+    if STATIC_DIR.exists():
+        assets_dir = STATIC_DIR / "assets"
+        logger.info(f"  assets/    : exists={assets_dir.exists()}")
+        index_file = STATIC_DIR / "index.html"
+        logger.info(f"  index.html : exists={index_file.exists()}")
+    logger.info("=======================================")
+
     yield
 
 
@@ -106,8 +125,12 @@ app.include_router(files.router, prefix="/api/files", tags=["files"])
 
 @app.get("/api/health")
 async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy", "version": "1.0.0"}
+    """Health check endpoint (used by Railway healthcheck)."""
+    return {
+        "status": "healthy",
+        "version": "1.0.0",
+        "static_ready": STATIC_DIR.exists(),
+    }
 
 
 # Serve static frontend files if they exist (production/bundled mode)
