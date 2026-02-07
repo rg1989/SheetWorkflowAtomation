@@ -1,15 +1,26 @@
 import { useCallback, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Upload, FileSpreadsheet, AlertCircle } from 'lucide-react'
+import { Upload, FileSpreadsheet, AlertCircle, Cloud } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { MAX_FILES, FILE_COLORS } from '../../../lib/colors'
 import { FileCard } from '../FileCard'
 import { fileApi } from '../../../lib/api'
+import { useAuth } from '../../../context/AuthContext'
+import { DriveFilePicker } from '../DriveFilePicker'
 import type { FileDefinition, ColumnInfo } from '../../../types'
 
 interface FilesStepProps {
   files: FileDefinition[]
   onAddFile: (file: File, columns: ColumnInfo[], sampleData?: Record<string, unknown>[], sheetName?: string, availableSheets?: string[], headerRow?: number) => void
+  onAddDriveFile: (params: {
+    name: string
+    filename: string
+    columns: ColumnInfo[]
+    sampleData?: Record<string, unknown>[]
+    driveFileId: string
+    driveMimeType: string
+    driveModifiedTime?: string
+  }) => void
   onRemoveFile: (fileId: string) => void
   onUpdateFileName: (fileId: string, name: string) => void
   onUpdateFileSheet: (fileId: string, columns: ColumnInfo[], sampleData?: Record<string, unknown>[], sheetName?: string) => void
@@ -19,6 +30,7 @@ interface FilesStepProps {
 export function FilesStep({
   files,
   onAddFile,
+  onAddDriveFile,
   onRemoveFile,
   onUpdateFileName,
   onUpdateFileSheet,
@@ -30,7 +42,12 @@ export function FilesStep({
   const [changingSheetFileId, setChangingSheetFileId] = useState<string | null>(null)
   const [changingHeaderRowFileId, setChangingHeaderRowFileId] = useState<string | null>(null)
 
+  const { driveConnected, loginWithDrive } = useAuth()
   const canAddMore = files.length < MAX_FILES
+
+  const handleDriveError = useCallback((errorMessage: string) => {
+    setError(errorMessage)
+  }, [])
 
   const handleFiles = useCallback(
     async (fileList: FileList) => {
@@ -155,10 +172,10 @@ export function FilesStep({
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold text-slate-900 mb-2">
-          Upload Your Files
+          Add Your Files
         </h2>
         <p className="text-slate-500">
-          Add the Excel files you want to combine. You can upload up to {MAX_FILES} files.
+          Upload Excel files or select from Google Drive. You can add up to {MAX_FILES} files.
         </p>
       </div>
 
@@ -194,76 +211,99 @@ export function FilesStep({
         )}
       </AnimatePresence>
 
-      {/* Upload zone */}
+      {/* File source options */}
       {canAddMore && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={cn(
-            'relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer',
-            isDragging
-              ? 'border-primary-500 bg-primary-50'
-              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50',
-            isUploading && 'pointer-events-none opacity-50'
-          )}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          onClick={() => document.getElementById('file-input')?.click()}
-        >
-          <input
-            id="file-input"
-            type="file"
-            accept=".xlsx,.xls"
-            multiple
-            onChange={handleFileInput}
-            className="hidden"
-          />
-
-          <motion.div
-            animate={isDragging ? { scale: 1.05 } : { scale: 1 }}
-            className="flex flex-col items-center"
-          >
-            <div
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Local upload option */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
               className={cn(
-                'w-16 h-16 rounded-full flex items-center justify-center mb-4 transition-colors duration-200',
-                isDragging ? 'bg-primary-100' : 'bg-slate-100'
+                'relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-200 cursor-pointer',
+                isDragging
+                  ? 'border-primary-500 bg-primary-50'
+                  : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50',
+                isUploading && 'pointer-events-none opacity-50'
               )}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => document.getElementById('file-input')?.click()}
             >
-              {isUploading ? (
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                >
-                  <FileSpreadsheet
-                    className={cn(
-                      'w-8 h-8',
-                      isDragging ? 'text-primary-600' : 'text-slate-500'
-                    )}
-                  />
-                </motion.div>
-              ) : (
-                <Upload
-                  className={cn(
-                    'w-8 h-8',
-                    isDragging ? 'text-primary-600' : 'text-slate-500'
-                  )}
-                />
-              )}
-            </div>
+              <input
+                id="file-input"
+                type="file"
+                accept=".xlsx,.xls"
+                multiple
+                onChange={handleFileInput}
+                className="hidden"
+              />
 
-            <p className="text-lg font-medium text-slate-700 mb-1">
-              {isUploading
-                ? 'Processing file...'
-                : isDragging
-                ? 'Drop files here'
-                : 'Drop Excel files here or click to upload'}
-            </p>
-            <p className="text-sm text-slate-500">
-              {MAX_FILES - files.length} more file{MAX_FILES - files.length !== 1 ? 's' : ''} can be added
-            </p>
-          </motion.div>
-        </motion.div>
+              <motion.div
+                animate={isDragging ? { scale: 1.05 } : { scale: 1 }}
+                className="flex flex-col items-center"
+              >
+                <div
+                  className={cn(
+                    'w-12 h-12 rounded-full flex items-center justify-center mb-3 transition-colors duration-200',
+                    isDragging ? 'bg-primary-100' : 'bg-slate-100'
+                  )}
+                >
+                  {isUploading ? (
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                    >
+                      <FileSpreadsheet className="w-6 h-6 text-slate-500" />
+                    </motion.div>
+                  ) : (
+                    <Upload className={cn('w-6 h-6', isDragging ? 'text-primary-600' : 'text-slate-500')} />
+                  )}
+                </div>
+
+                <p className="font-medium text-slate-700 mb-1">
+                  {isUploading ? 'Processing...' : isDragging ? 'Drop files here' : 'Upload from Computer'}
+                </p>
+                <p className="text-sm text-slate-500">
+                  Drop Excel files or click to browse
+                </p>
+              </motion.div>
+            </motion.div>
+
+            {/* Drive picker option */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+            >
+              {driveConnected ? (
+                <DriveFilePicker
+                  onFileReady={onAddDriveFile}
+                  onError={handleDriveError}
+                  disabled={!canAddMore || isUploading}
+                />
+              ) : (
+                <button
+                  onClick={loginWithDrive}
+                  className="flex flex-col items-center gap-3 p-6 border-2 border-slate-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors w-full h-full justify-center"
+                >
+                  <Cloud className="w-8 h-8 text-slate-400" />
+                  <div>
+                    <div className="font-medium text-slate-900">Connect Google Drive</div>
+                    <div className="text-sm text-slate-500">
+                      Grant access to select files from Drive
+                    </div>
+                  </div>
+                </button>
+              )}
+            </motion.div>
+          </div>
+
+          <p className="text-center text-xs text-slate-400">
+            {MAX_FILES - files.length} more file{MAX_FILES - files.length !== 1 ? 's' : ''} can be added
+          </p>
+        </div>
       )}
 
       {/* File limit reached message */}
