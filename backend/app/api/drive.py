@@ -20,7 +20,7 @@ from app.db.database import get_db
 from app.db.models import UserDB, RunDB
 from app.models.run import RunStatus
 from app.services.google_auth import build_drive_service, build_sheets_service
-from app.services.drive import download_drive_file_to_df, get_drive_file_metadata
+from app.services.drive import download_drive_file_to_df, get_drive_file_metadata, get_drive_excel_sheets
 from app.services.sheets import read_sheet_to_df, create_spreadsheet, update_sheet_values, get_sheet_tabs
 
 logger = logging.getLogger("uvicorn.error")
@@ -258,15 +258,22 @@ async def read_google_sheet(
 
 @router.get("/sheets/tabs")
 async def list_sheet_tabs(
-    spreadsheet_id: str,
+    file_id: Optional[str] = None,
+    spreadsheet_id: Optional[str] = None,
+    mime_type: Optional[str] = None,
     current_user: UserDB = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    List all sheet tabs in a Google Sheets spreadsheet.
+    List all sheet tabs in a Google Sheets spreadsheet or Excel file.
+
+    Supports Google Sheets (via Sheets API), Excel files (via openpyxl),
+    and CSV files (returns empty list).
 
     Args:
-        spreadsheet_id: Google Sheets spreadsheet ID
+        file_id: Drive file ID (preferred parameter name)
+        spreadsheet_id: Legacy parameter name (backward compatibility)
+        mime_type: MIME type of the file (determines parsing method)
         current_user: Authenticated user
         db: Database session
 
@@ -274,17 +281,38 @@ async def list_sheet_tabs(
         dict: {"tabs": [{"title": str, "index": int, "sheetId": int}, ...]}
 
     Raises:
+        HTTPException 400: Neither file_id nor spreadsheet_id provided
         HTTPException 401: User not authenticated or Drive not connected
-        HTTPException 403: Access denied to spreadsheet
-        HTTPException 404: Spreadsheet not found
+        HTTPException 403: Access denied to file
+        HTTPException 404: File not found
     """
     try:
-        # Build Sheets service
+        # Resolve file_id (prefer file_id, fallback to spreadsheet_id)
+        resolved_id = file_id or spreadsheet_id
+        if not resolved_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Either file_id or spreadsheet_id must be provided"
+            )
+
+        # CSV files have no tabs
+        if mime_type == "text/csv":
+            return {"tabs": []}
+
+        # Excel files: download and inspect with openpyxl
+        if mime_type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+            drive_service = await build_drive_service(current_user, db)
+            sheet_names = await get_drive_excel_sheets(drive_service, resolved_id, mime_type)
+            # Map to same structure as Google Sheets tabs
+            tabs = [
+                {"title": name, "index": i, "sheetId": i}
+                for i, name in enumerate(sheet_names)
+            ]
+            return {"tabs": tabs}
+
+        # Google Sheets (default behavior when mime_type not provided or is Google Sheets)
         sheets_service = await build_sheets_service(current_user, db)
-
-        # Get sheet tabs
-        tabs = await get_sheet_tabs(sheets_service, spreadsheet_id)
-
+        tabs = await get_sheet_tabs(sheets_service, resolved_id)
         return {"tabs": tabs}
 
     except ValueError as e:
