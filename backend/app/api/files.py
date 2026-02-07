@@ -54,6 +54,9 @@ async def parse_columns(
         
         columns = []
         for col in df.columns:
+            # Ensure column name is a string
+            col_name = str(col) if not isinstance(col, str) else col
+
             # Infer column type from data
             dtype = str(df[col].dtype)
             if 'int' in dtype or 'float' in dtype:
@@ -62,9 +65,9 @@ async def parse_columns(
                 col_type = 'date'
             else:
                 col_type = 'text'
-            
+
             columns.append({
-                "name": col,
+                "name": col_name,
                 "type": col_type,
                 "sampleValues": df[col].dropna().head(3).tolist(),
             })
