@@ -19,6 +19,8 @@ from pathlib import Path
 
 from app.db.database import get_db
 from app.db.models import WorkflowDB, RunDB, AuditLogDB
+from app.auth.deps import get_current_user
+from app.db.models import UserDB
 from app.models.workflow import (
     Workflow,
     WorkflowCreate,
@@ -60,7 +62,8 @@ def db_to_model(db_workflow: WorkflowDB) -> Workflow:
 @router.post("", response_model=Workflow)
 async def create_workflow(
     workflow: WorkflowCreate,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user),
 ):
     """Create a new workflow."""
     workflow_id = str(uuid.uuid4())
@@ -78,6 +81,7 @@ async def create_workflow(
     
     db_workflow = WorkflowDB(
         id=workflow_id,
+        user_id=current_user.id,
         name=workflow.name,
         description=workflow.description,
         config=config,
@@ -94,10 +98,15 @@ async def create_workflow(
 
 
 @router.get("", response_model=List[Workflow])
-async def list_workflows(db: AsyncSession = Depends(get_db)):
-    """List all workflows."""
+async def list_workflows(
+    db: AsyncSession = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user),
+):
+    """List all workflows for the current user."""
     result = await db.execute(
-        select(WorkflowDB).order_by(WorkflowDB.updated_at.desc())
+        select(WorkflowDB)
+        .where(WorkflowDB.user_id == current_user.id)
+        .order_by(WorkflowDB.updated_at.desc())
     )
     workflows = result.scalars().all()
     
@@ -107,11 +116,15 @@ async def list_workflows(db: AsyncSession = Depends(get_db)):
 @router.get("/{workflow_id}", response_model=Workflow)
 async def get_workflow(
     workflow_id: str,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user),
 ):
     """Get a specific workflow by ID."""
     result = await db.execute(
-        select(WorkflowDB).where(WorkflowDB.id == workflow_id)
+        select(WorkflowDB).where(
+            WorkflowDB.id == workflow_id,
+            WorkflowDB.user_id == current_user.id,
+        )
     )
     workflow = result.scalar_one_or_none()
     
@@ -125,11 +138,15 @@ async def get_workflow(
 async def update_workflow(
     workflow_id: str,
     workflow_update: WorkflowUpdate,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user),
 ):
     """Update an existing workflow."""
     result = await db.execute(
-        select(WorkflowDB).where(WorkflowDB.id == workflow_id)
+        select(WorkflowDB).where(
+            WorkflowDB.id == workflow_id,
+            WorkflowDB.user_id == current_user.id,
+        )
     )
     workflow = result.scalar_one_or_none()
     
@@ -173,11 +190,15 @@ async def update_workflow(
 @router.delete("/{workflow_id}")
 async def delete_workflow(
     workflow_id: str,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user),
 ):
     """Delete a workflow."""
     result = await db.execute(
-        select(WorkflowDB).where(WorkflowDB.id == workflow_id)
+        select(WorkflowDB).where(
+            WorkflowDB.id == workflow_id,
+            WorkflowDB.user_id == current_user.id,
+        )
     )
     workflow = result.scalar_one_or_none()
     
@@ -195,7 +216,8 @@ async def run_workflow(
     workflow_id: str,
     files: List[UploadFile] = File(...),
     file_configs: str = Form(...),  # JSON string with file ID -> {sheetName, headerRow} mapping
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user),
 ):
     """
     Run a workflow with uploaded files.
@@ -209,9 +231,12 @@ async def run_workflow(
     Returns:
         Preview data and run ID for downloading the result
     """
-    # Get the workflow
+    # Get the workflow (must belong to current user)
     result = await db.execute(
-        select(WorkflowDB).where(WorkflowDB.id == workflow_id)
+        select(WorkflowDB).where(
+            WorkflowDB.id == workflow_id,
+            WorkflowDB.user_id == current_user.id,
+        )
     )
     workflow = result.scalar_one_or_none()
     
@@ -270,17 +295,17 @@ async def run_workflow(
         engine = WorkflowEngine(workflow_config)
         output_df, warnings = engine.execute(dataframes)
         
-        # Ensure outputs directory exists
-        OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
-        
-        # Save the output to a persistent file
-        output_path = str(OUTPUTS_DIR / f"workflow_result_{run_id}.xlsx")
+        # Per-user output directory
+        user_output_dir = OUTPUTS_DIR / str(current_user.id)
+        user_output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = str(user_output_dir / f"workflow_result_{run_id}.xlsx")
         output_df.to_excel(output_path, index=False, engine='openpyxl')
         
         # Create run record
         db_run = RunDB(
             id=run_id,
             workflow_id=workflow_id,
+            user_id=current_user.id,
             status=RunStatus.COMPLETED,
             input_files=json.dumps({
                 "files": [f.filename for f in files],
@@ -337,6 +362,7 @@ async def run_workflow(
         db_run = RunDB(
             id=run_id,
             workflow_id=workflow_id,
+            user_id=current_user.id,
             status=RunStatus.FAILED,
             input_files=json.dumps({
                 "files": [f.filename for f in files],
@@ -364,22 +390,24 @@ async def run_workflow(
 async def download_workflow_result(
     workflow_id: str,
     run_id: str,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user),
 ):
     """
     Download the result of a workflow run.
     """
-    # Verify the run exists and belongs to this workflow
+    # Verify the run exists, belongs to this workflow, and to current user
     result = await db.execute(
-        select(RunDB).where(RunDB.id == run_id)
+        select(RunDB).where(
+            RunDB.id == run_id,
+            RunDB.workflow_id == workflow_id,
+            RunDB.user_id == current_user.id,
+        )
     )
     run = result.scalar_one_or_none()
     
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
-    
-    if run.workflow_id != workflow_id:
-        raise HTTPException(status_code=404, detail="Run not found for this workflow")
     
     if run.status != RunStatus.COMPLETED:
         raise HTTPException(status_code=400, detail="Run not completed successfully")

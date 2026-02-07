@@ -41,10 +41,25 @@ class Base(DeclarativeBase):
 
 
 async def create_tables():
-    """Create all database tables."""
-    from app.db.models import WorkflowDB, RunDB, AuditLogDB  # noqa: F401
+    """Create all database tables and add user_id columns if missing."""
+    from app.db.models import UserDB, WorkflowDB, RunDB, AuditLogDB  # noqa: F401
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Migration: add user_id to existing workflows/runs tables (SQLite)
+    async with engine.begin() as conn:
+        from sqlalchemy import text
+        for table in ("workflows", "runs"):
+            try:
+                result = await conn.execute(text(f"PRAGMA table_info({table})"))
+                rows = result.fetchall()
+                columns = [row[1] for row in rows]
+                if "user_id" not in columns:
+                    await conn.execute(
+                        text(f"ALTER TABLE {table} ADD COLUMN user_id VARCHAR REFERENCES users(id)")
+                    )
+            except Exception:
+                pass  # Table might not exist yet or already has column
 
 
 async def get_db():

@@ -4,15 +4,24 @@ A local workflow runner for Excel file operations.
 """
 from contextlib import asynccontextmanager
 from pathlib import Path
+import os
+import sys
+
+from dotenv import load_dotenv
+
+# Load .env before any config reads os.environ
+load_dotenv(Path(__file__).parent.parent / ".env")
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-import os
-import sys
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.db.database import create_tables
 from app.api import workflows, runs, files
+from app.auth import router as auth_router
+from app.auth.config import SESSION_SECRET_KEY
 
 
 # Determine base directory (works for both development and bundled app)
@@ -53,16 +62,28 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS for local development
+# Session for OAuth state and logged-in user (must be before CORS so session is available)
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY)
+
+# CORS: include deployed origin from env so cookie works when frontend is same host
+_cors_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
+if os.environ.get("CORS_ORIGIN"):
+    _cors_origins.append(os.environ["CORS_ORIGIN"].rstrip("/"))
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:8000", "http://127.0.0.1:8000"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Include API routers
+app.include_router(auth_router, prefix="/api")
 app.include_router(workflows.router, prefix="/api/workflows", tags=["workflows"])
 app.include_router(runs.router, prefix="/api/runs", tags=["runs"])
 app.include_router(files.router, prefix="/api/files", tags=["files"])

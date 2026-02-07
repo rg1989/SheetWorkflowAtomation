@@ -23,3 +23,8 @@ watchdog>=3.0.0
 
 # CORS
 python-dotenv>=1.0.0
+
+# Auth: Google OAuth + signed session
+authlib>=1.3.0
+httpx>=0.27.0
+itsdangerous>=2.1.0

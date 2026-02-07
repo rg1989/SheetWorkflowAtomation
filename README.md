@@ -93,6 +93,25 @@ Apply changes to the target file:
 | GET | `/api/runs/{id}/download/{type}` | Download output file |
 | GET | `/api/runs` | List run history |
 
+## Host as a web app
+
+The app runs as a single service: FastAPI serves the API and the built React frontend. Use the included Dockerfile to deploy to any platform that runs Docker.
+
+### Railway (recommended)
+
+1. Push this repo to GitHub and connect it at [railway.app](https://railway.app).
+2. In the project, **New → GitHub Repo** and select the repo.
+3. Railway will detect the **Dockerfile** and build it. No extra config needed.
+4. Click **Deploy**. When it’s live, open the generated URL (e.g. `https://your-app.up.railway.app`).
+
+You get one URL for both the UI and the API. Data (SQLite + uploads) is stored inside the container; for production you may add a [Railway volume](https://docs.railway.app/reference/volumes) and set `SHEET_WORKFLOW_DATA_DIR` to that path.
+
+### Other platforms
+
+- **Render**: New Web Service → connect repo → set **Docker** as environment, deploy.
+- **Fly.io**: `fly launch` in the repo root (use the Dockerfile), then `fly deploy`.
+- **Any Docker host**: `docker build -t sheet-workflow . && docker run -p 8000:8000 -e PORT=8000 sheet-workflow`. Serve on port 8000.
+
 ## Project Structure
 
 ```

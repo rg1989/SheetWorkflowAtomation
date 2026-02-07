@@ -1,0 +1,33 @@
+# Git and IDE
+.git
+.gitignore
+.github
+.idea
+.vscode
+*.md
+!README.md
+
+# Local dev
+venv
+.venv
+env
+data
+*.db
+__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# Frontend (rebuilt in Docker)
+frontend/node_modules
+frontend/dist
+frontend/.vite
+*.log
+.env
+.env.*
+
+# Build artifacts
+backend/dist
+backend/build
+*.spec

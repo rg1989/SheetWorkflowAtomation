@@ -10,7 +10,8 @@ import os
 import json
 
 from app.db.database import get_db
-from app.db.models import RunDB, WorkflowDB, AuditLogDB
+from app.db.models import RunDB, WorkflowDB, AuditLogDB, UserDB
+from app.auth.deps import get_current_user
 from app.models.run import Run, RunStatus
 
 router = APIRouter()
@@ -19,10 +20,11 @@ router = APIRouter()
 @router.get("", response_model=List[Run])
 async def list_runs(
     workflow_id: Optional[str] = None,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user),
 ):
-    """List all runs, optionally filtered by workflow."""
-    query = select(RunDB).order_by(RunDB.created_at.desc())
+    """List runs for the current user, optionally filtered by workflow."""
+    query = select(RunDB).where(RunDB.user_id == current_user.id).order_by(RunDB.created_at.desc())
     
     if workflow_id:
         query = query.where(RunDB.workflow_id == workflow_id)
@@ -47,11 +49,15 @@ async def list_runs(
 @router.get("/{run_id}", response_model=Run)
 async def get_run(
     run_id: str,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user),
 ):
     """Get a specific run."""
     result = await db.execute(
-        select(RunDB).where(RunDB.id == run_id)
+        select(RunDB).where(
+            RunDB.id == run_id,
+            RunDB.user_id == current_user.id,
+        )
     )
     run = result.scalar_one_or_none()
     
@@ -73,11 +79,15 @@ async def get_run(
 async def download_output(
     run_id: str,
     file_type: str,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user),
 ):
     """Download output file (excel)."""
     result = await db.execute(
-        select(RunDB).where(RunDB.id == run_id)
+        select(RunDB).where(
+            RunDB.id == run_id,
+            RunDB.user_id == current_user.id,
+        )
     )
     run = result.scalar_one_or_none()
     
@@ -103,11 +113,15 @@ async def download_output(
 @router.delete("/{run_id}")
 async def delete_run(
     run_id: str,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user),
 ):
     """Delete a run and its associated files."""
     result = await db.execute(
-        select(RunDB).where(RunDB.id == run_id)
+        select(RunDB).where(
+            RunDB.id == run_id,
+            RunDB.user_id == current_user.id,
+        )
     )
     run = result.scalar_one_or_none()
     
@@ -134,10 +148,11 @@ async def delete_run(
 
 @router.delete("")
 async def delete_all_runs(
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user),
 ):
-    """Delete all runs and their associated files."""
-    result = await db.execute(select(RunDB))
+    """Delete all runs for the current user and their associated files."""
+    result = await db.execute(select(RunDB).where(RunDB.user_id == current_user.id))
     runs = result.scalars().all()
     
     deleted_count = 0

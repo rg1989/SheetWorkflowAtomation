@@ -2,10 +2,10 @@
 File upload and parsing API endpoints.
 """
 from typing import List, Optional
-from fastapi import APIRouter, UploadFile, File, HTTPException, Form
-import os
-import tempfile
+from fastapi import APIRouter, UploadFile, File, HTTPException, Form, Depends
 
+from app.auth.deps import get_current_user
+from app.db.models import UserDB
 from app.core.parser import ExcelParser
 
 router = APIRouter()
@@ -15,7 +15,8 @@ router = APIRouter()
 async def parse_columns(
     file: UploadFile = File(...),
     sheet_name: Optional[str] = Form(None),
-    header_row: int = Form(1)
+    header_row: int = Form(1),
+    current_user: UserDB = Depends(get_current_user),
 ):
     """
     Parse an Excel file and return its column names.
@@ -95,7 +96,8 @@ async def parse_columns(
 async def validate_files(
     source_file: UploadFile = File(...),
     target_file: UploadFile = File(...),
-    key_column: str = None
+    key_column: str = None,
+    current_user: UserDB = Depends(get_current_user),
 ):
     """
     Validate that source and target files are compatible.

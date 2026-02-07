@@ -6,11 +6,23 @@ from sqlalchemy.sql import func
 from app.db.database import Base
 
 
+class UserDB(Base):
+    """User account (Google OAuth). id is Google 'sub'."""
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True)  # Google sub
+    email = Column(String, nullable=False)
+    name = Column(String, nullable=True)
+    avatar_url = Column(String, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
 class WorkflowDB(Base):
     """Workflow database model."""
     __tablename__ = "workflows"
 
     id = Column(String, primary_key=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)  # nullable for existing rows
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     config = Column(JSON, nullable=False)  # Full workflow definition
@@ -25,6 +37,7 @@ class RunDB(Base):
 
     id = Column(String, primary_key=True)
     workflow_id = Column(String, ForeignKey("workflows.id"), nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)  # nullable for existing rows
     status = Column(String, nullable=False)  # 'preview' | 'completed' | 'failed'
     input_files = Column(JSON, nullable=True)
     output_path = Column(String, nullable=True)

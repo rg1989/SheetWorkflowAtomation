@@ -9,20 +9,48 @@ import type {
 
 const API_BASE = '/api'
 
+const defaultFetchOptions: RequestInit = {
+  credentials: 'include',
+}
+
+export interface AuthUser {
+  id: string
+  email: string
+  name: string | null
+  avatarUrl: string | null
+}
+
+// Auth API
+export const authApi = {
+  me: (): Promise<AuthUser> =>
+    fetch(`${API_BASE}/auth/me`, { ...defaultFetchOptions }).then((r) =>
+      r.ok ? r.json() : Promise.reject(new Error('Not authenticated'))
+    ),
+
+  logout: (): Promise<void> =>
+    fetch(`${API_BASE}/auth/logout`, {
+      ...defaultFetchOptions,
+      method: 'POST',
+    }).then(() => undefined),
+
+  loginUrl: (): string => `${API_BASE}/auth/login`,
+}
+
 async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${url}`, {
+    ...defaultFetchOptions,
     ...options,
     headers: {
       'Content-Type': 'application/json',
       ...options?.headers,
     },
   })
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: 'Unknown error' }))
     throw new Error(error.detail || `HTTP ${response.status}`)
   }
-  
+
   return response.json()
 }
 
@@ -71,6 +99,7 @@ export const workflowApi = {
     formData.append('file_configs', JSON.stringify(fileConfigs))
     
     const response = await fetch(`${API_BASE}/workflows/${id}/run`, {
+      ...defaultFetchOptions,
       method: 'POST',
       body: formData,
     })
@@ -130,6 +159,7 @@ export const fileApi = {
     formData.append('header_row', headerRow.toString())
     
     const response = await fetch(`${API_BASE}/files/parse-columns`, {
+      ...defaultFetchOptions,
       method: 'POST',
       body: formData,
     })
