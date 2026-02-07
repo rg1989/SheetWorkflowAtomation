@@ -4,7 +4,7 @@ import { Upload, FileSpreadsheet, AlertCircle, Cloud, RefreshCw } from 'lucide-r
 import { cn } from '../../../lib/utils'
 import { MAX_FILES, FILE_COLORS } from '../../../lib/colors'
 import { FileCard } from '../FileCard'
-import { fileApi, authApi } from '../../../lib/api'
+import { fileApi, authApi, driveApi } from '../../../lib/api'
 import { useAuth } from '../../../context/AuthContext'
 import { DriveFilePicker } from '../DriveFilePicker'
 import type { FileDefinition, ColumnInfo } from '../../../types'
@@ -104,18 +104,42 @@ export function FilesStep({
   )
 
   const handleChangeSheet = useCallback(
-    async (fileId: string, originalFile: File | undefined, sheetName: string, currentHeaderRow: number = 1) => {
-      if (!originalFile) {
-        setError('Cannot change sheet: original file reference not available')
-        return
-      }
-
+    async (fileId: string, file: FileDefinition, sheetName: string, currentHeaderRow: number = 1) => {
       setError(null)
       setChangingSheetFileId(fileId)
 
       try {
-        // Preserve the current header row setting when changing sheets
-        const result = await fileApi.parseColumns(originalFile, sheetName, currentHeaderRow)
+        let result: { columns: ColumnInfo[]; sampleData?: Record<string, unknown>[]; sheetName?: string }
+
+        // Check if it's a Drive file
+        if (file.source === 'drive' && file.driveFileId) {
+          // Use Drive API for Google Sheets
+          if (file.driveMimeType === 'application/vnd.google-apps.spreadsheet') {
+            const readResult = await driveApi.readSheet(file.driveFileId, sheetName, currentHeaderRow)
+            result = {
+              columns: readResult.columns.map(col => ({
+                name: col,
+                type: 'text' as const,
+                sampleValues: [],
+              })),
+              sampleData: readResult.sample_data,
+              sheetName,
+            }
+          } else {
+            setError('Sheet selection only available for Google Sheets')
+            setChangingSheetFileId(null)
+            return
+          }
+        } else if (file.originalFile) {
+          // Use local file API
+          const parseResult = await fileApi.parseColumns(file.originalFile, sheetName, currentHeaderRow)
+          result = parseResult
+        } else {
+          setError('Cannot change sheet: file reference not available')
+          setChangingSheetFileId(null)
+          return
+        }
+
         const sampleData = result.sampleData ?? result.columns.map((col: ColumnInfo) => ({
           [col.name]: col.sampleValues?.[0] ?? null,
         }))
@@ -130,17 +154,51 @@ export function FilesStep({
   )
 
   const handleChangeHeaderRow = useCallback(
-    async (fileId: string, originalFile: File | undefined, sheetName: string | undefined, headerRow: number) => {
-      if (!originalFile) {
-        setError('Cannot change header row: original file reference not available')
-        return
-      }
-
+    async (fileId: string, file: FileDefinition, sheetName: string | undefined, headerRow: number) => {
       setError(null)
       setChangingHeaderRowFileId(fileId)
 
       try {
-        const result = await fileApi.parseColumns(originalFile, sheetName, headerRow)
+        let result: { columns: ColumnInfo[]; sampleData?: Record<string, unknown>[]; headerRow?: number }
+
+        // Check if it's a Drive file
+        if (file.source === 'drive' && file.driveFileId) {
+          // Use appropriate Drive API based on file type
+          if (file.driveMimeType === 'application/vnd.google-apps.spreadsheet') {
+            // For Google Sheets, use readSheet with the current tab
+            const readResult = await driveApi.readSheet(file.driveFileId, sheetName || '', headerRow)
+            result = {
+              columns: readResult.columns.map(col => ({
+                name: col,
+                type: 'text' as const,
+                sampleValues: [],
+              })),
+              sampleData: readResult.sample_data,
+              headerRow,
+            }
+          } else {
+            // For Excel/CSV files, use downloadFile
+            const downloadResult = await driveApi.downloadFile(file.driveFileId, headerRow)
+            result = {
+              columns: downloadResult.columns.map(col => ({
+                name: col,
+                type: 'text' as const,
+                sampleValues: [],
+              })),
+              sampleData: downloadResult.sample_data,
+              headerRow,
+            }
+          }
+        } else if (file.originalFile) {
+          // Use local file API
+          const parseResult = await fileApi.parseColumns(file.originalFile, sheetName, headerRow)
+          result = parseResult
+        } else {
+          setError('Cannot change header row: file reference not available')
+          setChangingHeaderRowFileId(null)
+          return
+        }
+
         const sampleData = result.sampleData ?? result.columns.map((col: ColumnInfo) => ({
           [col.name]: col.sampleValues?.[0] ?? null,
         }))
@@ -394,8 +452,8 @@ export function FilesStep({
               index={index}
               onRemove={() => onRemoveFile(file.id)}
               onUpdateName={(name) => onUpdateFileName(file.id, name)}
-              onChangeSheet={(sheetName) => handleChangeSheet(file.id, file.originalFile, sheetName, file.headerRow ?? 1)}
-              onChangeHeaderRow={(headerRow) => handleChangeHeaderRow(file.id, file.originalFile, file.sheetName, headerRow)}
+              onChangeSheet={(sheetName) => handleChangeSheet(file.id, file, sheetName, file.headerRow ?? 1)}
+              onChangeHeaderRow={(headerRow) => handleChangeHeaderRow(file.id, file, file.sheetName, headerRow)}
               isChangingSheet={changingSheetFileId === file.id}
               isChangingHeaderRow={changingHeaderRowFileId === file.id}
             />
