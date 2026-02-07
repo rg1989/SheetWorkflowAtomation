@@ -72,13 +72,13 @@ export function DriveFilePicker({ onFileReady, onError, disabled }: DriveFilePic
     <button
       onClick={openPicker}
       disabled={disabled || isLoading}
-      className="flex flex-col items-center gap-3 p-6 border-2 border-dashed border-slate-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed w-full h-full justify-center"
+      className="flex flex-col items-center gap-3 p-6 border-2 border-dashed border-slate-200 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed w-full h-full justify-center"
     >
       <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
         {isLoading ? (
-          <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+          <Loader2 className="w-6 h-6 text-primary-600 animate-spin" />
         ) : (
-          <Cloud className="w-6 h-6 text-blue-600" />
+          <Cloud className="w-6 h-6 text-primary-600" />
         )}
       </div>
       <div>
