@@ -7,10 +7,9 @@ from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 import os
-import json
 
 from app.db.database import get_db
-from app.db.models import RunDB, WorkflowDB, AuditLogDB, UserDB
+from app.db.models import RunDB, AuditLogDB, UserDB
 from app.auth.deps import get_current_user
 from app.models.run import Run, RunStatus
 

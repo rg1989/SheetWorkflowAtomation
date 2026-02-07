@@ -1,9 +1,10 @@
 """
 File upload and parsing API endpoints.
 """
+import math
 import os
 import tempfile
-from typing import List, Optional
+from typing import Optional
 from fastapi import APIRouter, UploadFile, File, HTTPException, Form, Depends
 
 from app.auth.deps import get_current_user
@@ -71,7 +72,6 @@ async def parse_columns(
         # Get sample data rows for preview
         sample_rows = df.head(5).to_dict('records')
         # Convert any NaN values to None for JSON serialization
-        import math
         for row in sample_rows:
             for key, value in row.items():
                 if isinstance(value, float) and math.isnan(value):
