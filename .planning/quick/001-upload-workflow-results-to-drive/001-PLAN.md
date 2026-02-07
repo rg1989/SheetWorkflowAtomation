@@ -17,6 +17,7 @@ must_haves:
     - "Export to Drive button only appears when user has Drive connected"
     - "In run history, completed runs show an 'Export to Drive' button alongside the existing 'Excel' download button"
     - "Loading and error states are shown during the export process"
+    - "Users can change header row and sheet tab for Drive files just like local files, without seeing 'Cannot change header row, original file reference not available' error"
   artifacts:
     - path: "frontend/src/lib/api.ts"
       provides: "driveApi.exportCreate and driveApi.exportUpdate methods"
@@ -39,11 +40,11 @@ must_haves:
 ---
 
 <objective>
-Add "Export to Drive" functionality to the workflow results UI and run history page.
+Add "Export to Drive" functionality to the workflow results UI and run history page, and fix the header row/tab selection issue for Drive files.
 
-Purpose: The backend already has `POST /drive/export/create` and `POST /drive/export/update` endpoints (from Phase 6). This plan wires up the frontend to call these endpoints, giving users a one-click way to push workflow results to Google Sheets instead of downloading locally.
+Purpose: The backend already has `POST /drive/export/create` and `POST /drive/export/update` endpoints (from Phase 6). This plan wires up the frontend to call these endpoints, giving users a one-click way to push workflow results to Google Sheets instead of downloading locally. Additionally, fix the bug where users cannot change header row or sheet tabs for Drive files (error: "Cannot change header row, original file reference not available").
 
-Output: Users see an "Export to Drive" button next to "Download Result" after running a workflow, and next to "Excel" in the history page. Clicking it creates a new Google Sheet and shows a link to view it.
+Output: Users see an "Export to Drive" button next to "Download Result" after running a workflow, and next to "Excel" in the history page. Clicking it creates a new Google Sheet and shows a link to view it. Users can also modify header row and sheet tab settings for Drive files just like local files.
 </objective>
 
 <execution_context>
@@ -137,6 +138,43 @@ In the HistoryPage, add an "Export to Drive" button next to the existing "Excel"
   <done>Completed runs in history show "Export to Drive" button (when Drive connected). After export, button changes to "Sheets" link opening the Google Sheet.</done>
 </task>
 
+<task type="auto">
+  <name>Task 4: Fix header row and tab selection for Drive files</name>
+  <files>frontend/src/pages/RunWorkflowPage.tsx</files>
+  <action>
+Fix the issue where users cannot change the header row or sheet tab for Drive files like they can with local files. The error "Cannot change header row, original file reference not available" occurs because the original Drive file reference is lost after selection.
+
+Implementation details:
+
+1. Modify the file slot data structure to preserve the original Drive file reference:
+   - In FileSlotCard component and file state management, ensure `originalFile` property is preserved for Drive files
+   - The `originalFile` should contain the full `DrivePickerFile` data including `id`, `name`, `mimeType`, etc.
+
+2. Update the header row change handler:
+   - In `handleHeaderRowChange`, check if the file has `source === 'drive'`
+   - If it's a Drive file and has `originalFile` data, re-fetch the file data using `driveApi.readDriveFile()` with the new header row
+   - Update the file's `columns` and `sampleRows` with the new data
+   - Show loading state during re-fetch
+
+3. Update the sheet tab change handler (if different from header row):
+   - Similar logic to header row change
+   - Use the `originalFile.id` to re-fetch data with different sheet tab
+   - Update preview accordingly
+
+4. Ensure the `originalFile` reference persists through state updates:
+   - When files are added via Drive picker in `handleAddDriveFile`, ensure `originalFile` is set
+   - When files are modified (header row or tab change), preserve the `originalFile` reference
+
+5. Add proper error handling:
+   - If `originalFile` is missing for a Drive file, show clear error message: "Cannot modify Drive file settings. Please re-select the file."
+   - If API call fails, show the actual error message
+
+Goal: Users should be able to change header row and sheet tabs for Drive files just like local files, with the UI re-fetching the data from Drive using the stored file reference.
+  </action>
+  <verify>TypeScript compiles: `cd frontend && npx tsc --noEmit`. Manual test: Select a Drive sheet, try changing header row - should work without error.</verify>
+  <done>Drive files can have their header row and sheet tab changed dynamically, with data re-fetched from Drive API using preserved file reference.</done>
+</task>
+
 </tasks>
 
 <verification>
@@ -152,6 +190,8 @@ In the HistoryPage, add an "Export to Drive" button next to the existing "Excel"
 - RunWorkflowPage shows "Export to Drive" button in result card (Drive connected only)
 - HistoryPage shows "Export to Drive" button per completed run (Drive connected only)
 - Export creates Google Sheet and displays link to view it
+- Users can change header row and sheet tab for Drive files without errors
+- Original Drive file reference is preserved for re-fetching data
 - TypeScript compiles with no errors
 </success_criteria>
 

@@ -152,7 +152,13 @@ async def get_drive_file_metadata(service, file_id: str) -> dict:
 
 
 @drive_retry
-async def _download_binary_to_df(service, file_id: str, format: str) -> pd.DataFrame:
+async def _download_binary_to_df(
+    service,
+    file_id: str,
+    format: str,
+    sheet_name: Optional[str] = None,
+    header_row: int = 0,
+) -> pd.DataFrame:
     """
     Download binary file from Drive and parse to DataFrame.
 
@@ -160,6 +166,8 @@ async def _download_binary_to_df(service, file_id: str, format: str) -> pd.DataF
         service: Google Drive API service object
         file_id: Drive file ID
         format: "excel" or "csv"
+        sheet_name: Optional sheet name for Excel files (default: first sheet)
+        header_row: Which row contains headers (0-indexed, default: 0)
 
     Returns:
         pd.DataFrame: Parsed DataFrame with stripped column names
@@ -186,9 +194,14 @@ async def _download_binary_to_df(service, file_id: str, format: str) -> pd.DataF
 
         # Parse based on format
         if format == "excel":
-            df = pd.read_excel(buffer, engine="openpyxl")
+            df = pd.read_excel(
+                buffer,
+                engine="openpyxl",
+                sheet_name=sheet_name or 0,
+                header=header_row,
+            )
         elif format == "csv":
-            df = pd.read_csv(buffer)
+            df = pd.read_csv(buffer, header=header_row)
         else:
             raise ValueError(f"Unsupported format: {format}")
 
@@ -203,13 +216,20 @@ async def _download_binary_to_df(service, file_id: str, format: str) -> pd.DataF
 
 
 @drive_retry
-async def _export_google_sheet_to_df(service, file_id: str) -> pd.DataFrame:
+async def _export_google_sheet_to_df(
+    service,
+    file_id: str,
+    sheet_name: Optional[str] = None,
+    header_row: int = 0,
+) -> pd.DataFrame:
     """
     Export Google Sheet as Excel and parse to DataFrame.
 
     Args:
         service: Google Drive API service object
         file_id: Drive file ID (must be Google Sheet)
+        sheet_name: Optional sheet name (default: first sheet)
+        header_row: Which row contains headers (0-indexed, default: 0)
 
     Returns:
         pd.DataFrame: Parsed DataFrame with stripped column names
@@ -238,7 +258,12 @@ async def _export_google_sheet_to_df(service, file_id: str) -> pd.DataFrame:
         buffer.seek(0)
 
         # Parse as Excel
-        df = pd.read_excel(buffer, engine="openpyxl")
+        df = pd.read_excel(
+            buffer,
+            engine="openpyxl",
+            sheet_name=sheet_name or 0,
+            header=header_row,
+        )
 
         # Strip whitespace from column names
         df.columns = df.columns.str.strip()
@@ -250,11 +275,76 @@ async def _export_google_sheet_to_df(service, file_id: str) -> pd.DataFrame:
         _handle_drive_error(e, file_id)
 
 
+@drive_retry
+async def _download_to_buffer(service, file_id: str) -> io.BytesIO:
+    """
+    Download a binary file from Drive to an in-memory buffer.
+
+    Args:
+        service: Google Drive API service object
+        file_id: Drive file ID
+
+    Returns:
+        io.BytesIO: Buffer containing the file contents (seeked to start)
+
+    Raises:
+        HTTPException: On permission errors, file not found, or API errors
+    """
+    try:
+        request = service.files().get_media(fileId=file_id)
+        buffer = io.BytesIO()
+        downloader = MediaIoBaseDownload(buffer, request)
+
+        done = False
+        while not done:
+            status, done = await asyncio.to_thread(downloader.next_chunk)
+            if status:
+                logger.debug("Download progress: %d%%", int(status.progress() * 100))
+
+        buffer.seek(0)
+        return buffer
+    except HttpError as e:
+        _handle_drive_error(e, file_id)
+
+
+async def get_drive_excel_sheets(service, file_id: str, mime_type: str) -> list[str]:
+    """
+    Get available sheet names from a Drive Excel file.
+
+    For Google Sheets, uses Sheets API tabs endpoint.
+    For binary Excel files, downloads and inspects with openpyxl.
+
+    Args:
+        service: Google Drive API service object
+        file_id: Drive file ID
+        mime_type: MIME type of the file
+
+    Returns:
+        list[str]: Sheet names (empty list for CSV files)
+    """
+    if mime_type == MIME_CSV:
+        return []
+
+    if mime_type == MIME_GOOGLE_SHEET:
+        # Google Sheets tabs are retrieved via the Sheets API (handled separately)
+        return []
+
+    # For binary Excel files, download and inspect
+    buffer = await _download_to_buffer(service, file_id)
+    import openpyxl
+    wb = openpyxl.load_workbook(buffer, read_only=True)
+    sheet_names = wb.sheetnames
+    wb.close()
+    return sheet_names
+
+
 async def download_drive_file_to_df(
     service,
     file_id: str,
     mime_type: Optional[str] = None,
     sheets_service=None,
+    sheet_name: Optional[str] = None,
+    header_row: int = 0,
 ) -> pd.DataFrame:
     """
     Download a Drive file and convert to pandas DataFrame.
@@ -270,6 +360,8 @@ async def download_drive_file_to_df(
         file_id: Drive file ID
         mime_type: Optional MIME type (if known, skips metadata lookup)
         sheets_service: Optional Google Sheets API service object (for native Sheets read)
+        sheet_name: Optional sheet name for multi-sheet files (default: first sheet)
+        header_row: Which row contains headers (0-indexed, default: 0)
 
     Returns:
         pd.DataFrame: Parsed DataFrame
@@ -283,21 +375,21 @@ async def download_drive_file_to_df(
         metadata = await get_drive_file_metadata(service, file_id)
         mime_type = metadata.get("mimeType")
 
-    logger.info("Downloading Drive file %s (%s)", file_id, mime_type)
+    logger.info("Downloading Drive file %s (%s) sheet=%s header_row=%d", file_id, mime_type, sheet_name, header_row)
 
     # Route based on MIME type
     if mime_type == MIME_GOOGLE_SHEET:
         if sheets_service is not None:
             # Prefer native Sheets API for better efficiency
             from app.services.sheets import read_sheet_to_df
-            return await read_sheet_to_df(sheets_service, file_id)
+            return await read_sheet_to_df(sheets_service, file_id, range_name=sheet_name or "")
         else:
             # Fallback to Drive export if Sheets service not available
-            return await _export_google_sheet_to_df(service, file_id)
+            return await _export_google_sheet_to_df(service, file_id, sheet_name=sheet_name, header_row=header_row)
     elif mime_type == MIME_EXCEL:
-        return await _download_binary_to_df(service, file_id, "excel")
+        return await _download_binary_to_df(service, file_id, "excel", sheet_name=sheet_name, header_row=header_row)
     elif mime_type == MIME_CSV:
-        return await _download_binary_to_df(service, file_id, "csv")
+        return await _download_binary_to_df(service, file_id, "csv", header_row=header_row)
     else:
         raise ValueError(
             f"Unsupported file type: {mime_type}. "
