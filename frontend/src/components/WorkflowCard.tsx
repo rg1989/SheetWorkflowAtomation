@@ -6,6 +6,7 @@ import { cn } from '../lib/utils'
 import { Button } from './ui/Button'
 import { Badge } from './ui/Badge'
 import { Spinner } from './ui/Spinner'
+import { FileNamingModal } from './FileNamingModal'
 import { getFileColor } from '../lib/colors'
 import { formatRelativeTime } from '../lib/utils'
 import { runApi } from '../lib/api'
@@ -28,14 +29,48 @@ export function WorkflowCard({ workflow, onDelete, isDeleting }: WorkflowCardPro
   const outputColumns = workflow.outputColumns || []
   const [expanded, setExpanded] = useState(false)
 
+  // File naming modal state
+  const [namingModal, setNamingModal] = useState<{
+    isOpen: boolean
+    runId: string
+  }>({ isOpen: false, runId: '' })
+  const [fileName, setFileName] = useState('')
+
   const { data: runs, isLoading: runsLoading } = useQuery({
     queryKey: ['runs', workflow.id],
     queryFn: () => runApi.list(workflow.id),
     enabled: expanded,
   })
 
-  const handleDownload = (runId: string) => {
-    window.open(runApi.downloadUrl(runId, 'excel'), '_blank')
+  // Generate default file name
+  const getDefaultFileName = (createdAt: string) => {
+    const relativeTime = formatRelativeTime(createdAt)
+    return `${workflow.name} - ${relativeTime}`
+  }
+
+  const handleDownload = (runId: string, createdAt: string) => {
+    setFileName(getDefaultFileName(createdAt))
+    setNamingModal({ isOpen: true, runId })
+  }
+
+  const handleNamingConfirm = async (confirmedName: string) => {
+    try {
+      const response = await fetch(runApi.downloadUrl(namingModal.runId, 'excel'), {
+        credentials: 'include',
+      })
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = confirmedName.endsWith('.xlsx') ? confirmedName : `${confirmedName}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      setNamingModal({ isOpen: false, runId: '' })
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to download file')
+    }
   }
 
   return (
@@ -186,7 +221,7 @@ export function WorkflowCard({ workflow, onDelete, isDeleting }: WorkflowCardPro
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDownload(run.id)}
+                        onClick={() => handleDownload(run.id, run.createdAt)}
                         className="!px-2 !py-1 text-slate-500 hover:text-primary-600"
                       >
                         <Download className="w-3.5 h-3.5" />
@@ -199,6 +234,14 @@ export function WorkflowCard({ workflow, onDelete, isDeleting }: WorkflowCardPro
           )}
         </div>
       )}
+
+      <FileNamingModal
+        isOpen={namingModal.isOpen}
+        onClose={() => setNamingModal({ isOpen: false, runId: '' })}
+        onConfirm={handleNamingConfirm}
+        defaultName={fileName}
+        actionLabel="Download"
+      />
     </div>
   )
 }
