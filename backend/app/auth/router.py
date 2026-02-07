@@ -261,6 +261,30 @@ async def get_access_token(
         )
 
 
+@router.post("/disconnect-drive")
+async def disconnect_drive(
+    current_user: UserDB = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Disconnect Google Drive by clearing OAuth tokens.
+
+    This allows users to reconnect with updated scopes.
+    User session remains active.
+    """
+    # Clear Drive tokens
+    current_user.google_access_token = None
+    current_user.google_refresh_token = None
+    current_user.token_expiry = None
+    current_user.drive_scopes = None
+
+    await db.commit()
+
+    logger.info("User %s disconnected Google Drive", current_user.id)
+
+    return {"success": True, "message": "Google Drive disconnected"}
+
+
 @router.post("/logout")
 async def logout(request: Request):
     """Clear session and return 200."""
