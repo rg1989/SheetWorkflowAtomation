@@ -108,10 +108,10 @@ Plans:
   3. Download option remains available alongside Drive push options (local fallback always works)
   4. After creating/updating Sheet, user sees success message with link to view in Google Sheets
   5. Export operations handle rate limits and permission errors gracefully
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 06-01: TBD during planning
+- [ ] 06-01-PLAN.md -- Sheets write service functions + export REST endpoints for create/update
 
 ## Progress
 
@@ -125,4 +125,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. Backend Drive Endpoints | 1/1 | Complete | 2026-02-07 |
 | 4. Frontend Picker UI | 0/TBD | Not started | - |
 | 5. Workflow Integration | 0/TBD | Not started | - |
-| 6. Export to Drive | 0/TBD | Not started | - |
+| 6. Export to Drive | 0/1 | Not started | - |
