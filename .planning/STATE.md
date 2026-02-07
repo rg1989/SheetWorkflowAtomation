@@ -5,33 +5,35 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Users can connect their Google Drive and seamlessly use Drive files as workflow inputs and push results back — eliminating the download/upload cycle entirely.
-**Current focus:** Phase 1 complete — Ready for Phase 2 (Backend Drive Service)
+**Current focus:** Phase 2 in progress — Backend Drive Service (service layer foundation)
 
 ## Current Position
 
-Phase: 1 of 6 (Token Management Foundation)
-Plan: 02 of 2 in phase
-Status: Phase complete
-Last activity: 2026-02-07 — Completed 01-02-PLAN.md (OAuth flow integration)
+Phase: 2 of 6 (Backend Drive Service)
+Plan: 01 of 2 in phase
+Status: In progress
+Last activity: 2026-02-07 — Completed 02-01-PLAN.md (Drive service foundation)
 
-Progress: [██░░░░░░░░] 20%
+Progress: [███░░░░░░░] 25%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 1.5 min
-- Total execution time: 0.05 hours
+- Total plans completed: 3
+- Average duration: 2 min
+- Total execution time: 0.1 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-token-management-foundation | 2/2 | 3 min | 1.5 min |
+| 02-backend-drive-service | 1/2 | 3 min | 3 min |
 
 **Recent Trend:**
 - 01-01: 2 min (Token storage and encryption)
 - 01-02: 1 min (OAuth flow integration)
+- 02-01: 3 min (Drive service foundation)
 
 *Updated after each plan completion*
 
@@ -54,6 +56,10 @@ Recent decisions affecting current work:
 - Use 5-minute token expiry buffer to prevent mid-request expiry - 01-02
 - Return 401 with 'drive_reconnect_required' detail for all refresh failures - clear frontend signal - 01-02
 - Preserve existing refresh_token when OAuth returns none - Google only returns refresh_token on consent - 01-02
+- Use asyncio.to_thread() to wrap Google API blocking calls for FastAPI compatibility - 02-01
+- Apply @drive_retry decorator with 5 attempts, 2-60s exponential backoff for 429/5xx - 02-01
+- Map 403 -> permission denied, 404 -> not found, 429 -> rate limit for clear UX - 02-01
+- Strip column names whitespace to match existing ExcelParser behavior - 02-01
 
 ### Pending Todos
 
@@ -68,7 +74,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-07 10:16:35 UTC
-Stopped at: Phase 1 verified and complete (Token Management Foundation)
+Last session: 2026-02-07 10:44:28 UTC
+Stopped at: Completed 02-01-PLAN.md (Drive service foundation)
 Resume file: None
-Next: Plan Phase 2 (Backend Drive Service) when ready
+Next: Ready for 02-02-PLAN.md (Native Sheets API read)
