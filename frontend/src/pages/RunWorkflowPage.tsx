@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Upload, Play, Download, FileSpreadsheet, Check, AlertCircle, ChevronDown, Loader2, Cloud, ExternalLink } from 'lucide-react'
@@ -7,12 +7,14 @@ import { Card, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
 import { Badge } from '../components/ui/Badge'
+import { FileNamingModal } from '../components/FileNamingModal'
+import { ResultsPreview } from '../components/ResultsPreview'
 import { workflowApi, fileApi, driveApi } from '../lib/api'
 import { cn } from '../lib/utils'
 import { getFileColor } from '../lib/colors'
 import { useAuth } from '../context/AuthContext'
 import { useDriveFilePicker } from '../hooks/useDriveFilePicker'
-import type { FileDefinition, ColumnInfo, DriveRunFileState, DrivePickerFile } from '../types'
+import type { FileDefinition, ColumnInfo, DriveRunFileState, DrivePickerFile, FullResultData } from '../types'
 
 interface UploadedFileState {
   file: File
@@ -397,6 +399,17 @@ export function RunWorkflowPage() {
   const [isExporting, setIsExporting] = useState(false)
   const [exportResult, setExportResult] = useState<{ url: string; id: string } | null>(null)
 
+  // Full result data for preview
+  const [fullResultData, setFullResultData] = useState<FullResultData | null>(null)
+  const [isLoadingFullData, setIsLoadingFullData] = useState(false)
+
+  // File naming modal state
+  const [namingModal, setNamingModal] = useState<{
+    isOpen: boolean
+    action: 'download' | 'drive'
+  }>({ isOpen: false, action: 'download' })
+  const [fileName, setFileName] = useState('')
+
   // Validate file columns against expected columns
   const validateFileColumns = useCallback((
     uploadedColumns: ColumnInfo[] | string[],
@@ -763,11 +776,68 @@ export function RunWorkflowPage() {
 
   const allFilesUploaded = workflow?.files?.every(f => uploadedFiles[f.id]?.validated || driveFiles[f.id]?.validated) ?? false
 
+  // Fetch full data after successful run
+  useEffect(() => {
+    if (result?.success && result?.runId && id) {
+      setIsLoadingFullData(true)
+      workflowApi.getResultData(id, result.runId)
+        .then(setFullResultData)
+        .catch(() => {
+          // Fallback: use the 20-row preview data from the run result
+          setFullResultData(null)
+        })
+        .finally(() => setIsLoadingFullData(false))
+    }
+  }, [result?.success, result?.runId, id])
+
+  // Generate default file name
+  const getDefaultFileName = () => {
+    const now = new Date()
+    const timestamp = now.toISOString().slice(0, 16).replace('T', ' ').replace(':', '-')
+    return `${workflow?.name ?? 'Result'} - ${timestamp}`
+  }
+
+  // Handle naming modal confirm
+  const handleNamingConfirm = useCallback(async (confirmedName: string) => {
+    if (namingModal.action === 'download') {
+      // Trigger download with custom name
+      // Create a temporary anchor to download with the chosen filename
+      const downloadUrl = workflowApi.downloadUrl(id!, result!.runId!)
+      const response = await fetch(downloadUrl, { credentials: 'include' })
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = confirmedName.endsWith('.xlsx') ? confirmedName : `${confirmedName}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      setNamingModal({ isOpen: false, action: 'download' })
+    } else {
+      // Export to Drive with custom name
+      setIsExporting(true)
+      try {
+        const exportResponse = await driveApi.exportCreate(result!.runId!, confirmedName)
+        setExportResult({
+          url: exportResponse.spreadsheet_url,
+          id: exportResponse.spreadsheet_id,
+        })
+        setNamingModal({ isOpen: false, action: 'download' })
+      } catch (err) {
+        alert(err instanceof Error ? err.message : 'Failed to export to Drive')
+      } finally {
+        setIsExporting(false)
+      }
+    }
+  }, [namingModal.action, id, result])
+
   const handleRun = useCallback(async () => {
     if (!workflow || !allFilesUploaded || !id) return
 
     setIsProcessing(true)
     setResult(null)
+    setFullResultData(null) // Reset full data on new run
     setExportResult(null) // Reset export result on new run
 
     try {
@@ -829,23 +899,6 @@ export function RunWorkflowPage() {
       setIsProcessing(false)
     }
   }, [workflow, allFilesUploaded, uploadedFiles, driveFiles, id])
-
-  const handleExportToDrive = useCallback(async () => {
-    if (!workflow || !result?.runId) return
-
-    setIsExporting(true)
-    try {
-      const exportResponse = await driveApi.exportCreate(result.runId, workflow.name + ' - Results')
-      setExportResult({
-        url: exportResponse.spreadsheet_url,
-        id: exportResponse.spreadsheet_id,
-      })
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to export to Drive')
-    } finally {
-      setIsExporting(false)
-    }
-  }, [workflow, result])
 
   if (isLoading) {
     return (
@@ -985,32 +1038,27 @@ export function RunWorkflowPage() {
                 </div>
                 {result.success && result.runId && id && (
                   <div className="flex items-center gap-2">
-                    <a
-                      href={workflowApi.downloadUrl(id, result.runId)}
-                      download
+                    <button
+                      onClick={() => {
+                        setFileName(getDefaultFileName())
+                        setNamingModal({ isOpen: true, action: 'download' })
+                      }}
                       className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
                     >
                       <Download className="w-4 h-4" />
                       Download Result
-                    </a>
+                    </button>
                     {driveConnected && !exportResult && (
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={handleExportToDrive}
-                        disabled={isExporting}
+                        onClick={() => {
+                          setFileName(getDefaultFileName())
+                          setNamingModal({ isOpen: true, action: 'drive' })
+                        }}
                       >
-                        {isExporting ? (
-                          <>
-                            <Spinner size="sm" className="mr-2" />
-                            Exporting...
-                          </>
-                        ) : (
-                          <>
-                            <Cloud className="w-4 h-4" />
-                            Export to Drive
-                          </>
-                        )}
+                        <Cloud className="w-4 h-4" />
+                        Export to Drive
                       </Button>
                     )}
                     {exportResult && (
@@ -1040,63 +1088,37 @@ export function RunWorkflowPage() {
                 </div>
               )}
             </Card>
-            
-            {/* Preview table */}
-            {result.success && result.previewData && result.columns && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileSpreadsheet className="w-5 h-5" />
-                    Preview ({result.previewData.length} of {result.rowCount} rows)
-                  </CardTitle>
-                </CardHeader>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-200 bg-slate-50">
-                        {result.columns.map((col) => (
-                          <th
-                            key={col}
-                            className="px-3 py-2 text-left font-medium text-slate-700 whitespace-nowrap"
-                          >
-                            {col}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {result.previewData.map((row, rowIdx) => (
-                        <tr
-                          key={rowIdx}
-                          className={cn(
-                            'border-b border-slate-100',
-                            rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
-                          )}
-                        >
-                          {result.columns!.map((col) => (
-                            <td
-                              key={col}
-                              className="px-3 py-2 text-slate-600 whitespace-nowrap max-w-[200px] truncate"
-                              title={String(row[col] ?? '')}
-                            >
-                              {row[col] != null ? String(row[col]) : '—'}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {result.rowCount && result.rowCount > 20 && (
-                  <p className="text-xs text-slate-400 mt-3 text-center">
-                    Showing first 20 rows of {result.rowCount} total. Download the file for complete data.
-                  </p>
-                )}
-              </Card>
+
+            {/* Results preview */}
+            {result.success && (fullResultData || (result.previewData && result.columns)) && (
+              fullResultData ? (
+                <ResultsPreview
+                  columns={fullResultData.columns}
+                  data={fullResultData.data}
+                  rowCount={fullResultData.rowCount}
+                  isLoading={isLoadingFullData}
+                />
+              ) : result.previewData && result.columns ? (
+                <ResultsPreview
+                  columns={result.columns}
+                  data={result.previewData}
+                  rowCount={result.rowCount ?? result.previewData.length}
+                  isLoading={isLoadingFullData}
+                />
+              ) : null
             )}
           </motion.div>
         )}
       </AnimatePresence>
+
+      <FileNamingModal
+        isOpen={namingModal.isOpen}
+        onClose={() => setNamingModal({ isOpen: false, action: 'download' })}
+        onConfirm={handleNamingConfirm}
+        defaultName={fileName}
+        actionLabel={namingModal.action === 'download' ? 'Download' : 'Export to Drive'}
+        isLoading={namingModal.action === 'drive' ? isExporting : false}
+      />
     </div>
   )
 }
