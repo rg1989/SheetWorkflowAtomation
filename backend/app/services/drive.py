@@ -206,7 +206,16 @@ async def _download_binary_to_df(
             raise ValueError(f"Unsupported format: {format}")
 
         # Strip whitespace from column names (match ExcelParser behavior)
-        df.columns = df.columns.str.strip()
+        # Normalize column names to strings and strip whitespace
+        # Handle cases where columns might be integers, floats, or tuples
+        new_columns = []
+        for col in df.columns:
+            if isinstance(col, str):
+                new_columns.append(col.strip())
+            else:
+                # Convert non-string columns to string (e.g., int, float, NaN)
+                new_columns.append(str(col).strip())
+        df.columns = new_columns
 
         logger.info("Downloaded and parsed %s file %s (%d rows)", format, file_id, len(df))
         return df
@@ -266,7 +275,16 @@ async def _export_google_sheet_to_df(
         )
 
         # Strip whitespace from column names
-        df.columns = df.columns.str.strip()
+        # Normalize column names to strings and strip whitespace
+        # Handle cases where columns might be integers, floats, or tuples
+        new_columns = []
+        for col in df.columns:
+            if isinstance(col, str):
+                new_columns.append(col.strip())
+            else:
+                # Convert non-string columns to string (e.g., int, float, NaN)
+                new_columns.append(str(col).strip())
+        df.columns = new_columns
 
         logger.info("Exported and parsed Google Sheet %s (%d rows)", file_id, len(df))
         return df
