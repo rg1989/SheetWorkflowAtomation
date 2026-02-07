@@ -78,10 +78,11 @@ Plans:
   3. User can select Drive file OR upload local file for each workflow input (mix sources)
   4. Selected Drive files return metadata (ID, name, MIME type) to workflow editor
   5. Users without Drive scopes see "Connect Google Drive" button that redirects to OAuth
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: TBD during planning
+- [ ] 04-01-PLAN.md -- Types, API client, auth context, picker hook and component
+- [ ] 04-02-PLAN.md -- FilesStep and WorkflowWizard integration with dual-source input
 
 ### Phase 5: Workflow Integration
 **Goal**: Workflows accept Drive files as inputs and execute with mixed sources
@@ -116,13 +117,13 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Token Management Foundation | 2/2 | Complete | 2026-02-07 |
 | 2. Backend Drive Service | 2/2 | Complete | 2026-02-07 |
 | 3. Backend Drive Endpoints | 1/1 | Complete | 2026-02-07 |
-| 4. Frontend Picker UI | 0/TBD | Not started | - |
+| 4. Frontend Picker UI | 0/2 | Not started | - |
 | 5. Workflow Integration | 0/TBD | Not started | - |
 | 6. Export to Drive | 0/1 | Not started | - |
