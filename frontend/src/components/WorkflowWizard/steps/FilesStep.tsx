@@ -1,10 +1,10 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Upload, FileSpreadsheet, AlertCircle, Cloud } from 'lucide-react'
+import { Upload, FileSpreadsheet, AlertCircle, Cloud, RefreshCw } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { MAX_FILES, FILE_COLORS } from '../../../lib/colors'
 import { FileCard } from '../FileCard'
-import { fileApi } from '../../../lib/api'
+import { fileApi, authApi } from '../../../lib/api'
 import { useAuth } from '../../../context/AuthContext'
 import { DriveFilePicker } from '../DriveFilePicker'
 import type { FileDefinition, ColumnInfo } from '../../../types'
@@ -41,13 +41,38 @@ export function FilesStep({
   const [error, setError] = useState<string | null>(null)
   const [changingSheetFileId, setChangingSheetFileId] = useState<string | null>(null)
   const [changingHeaderRowFileId, setChangingHeaderRowFileId] = useState<string | null>(null)
+  const [needsReconnect, setNeedsReconnect] = useState(false)
+  const [isReconnecting, setIsReconnecting] = useState(false)
 
   const { driveConnected, loginWithDrive } = useAuth()
   const canAddMore = files.length < MAX_FILES
 
+  // Check if user needs to reconnect Drive (has legacy scope)
+  useEffect(() => {
+    if (driveConnected) {
+      authApi.driveStatus().then((status) => {
+        setNeedsReconnect(status.needsReconnect)
+      }).catch(() => {
+        // Ignore errors - reconnect banner is optional
+      })
+    }
+  }, [driveConnected])
+
   const handleDriveError = useCallback((errorMessage: string) => {
     setError(errorMessage)
   }, [])
+
+  const handleReconnectDrive = useCallback(async () => {
+    setIsReconnecting(true)
+    try {
+      await authApi.disconnectDrive()
+      // Redirect to OAuth with Drive scopes
+      loginWithDrive()
+    } catch (err) {
+      setError('Failed to reconnect Drive. Please try again.')
+      setIsReconnecting(false)
+    }
+  }, [loginWithDrive])
 
   const handleFiles = useCallback(
     async (fileList: FileList) => {
@@ -178,6 +203,46 @@ export function FilesStep({
           Upload Excel files or select from Google Drive. You can add up to {MAX_FILES} files.
         </p>
       </div>
+
+      {/* Reconnect Drive banner */}
+      <AnimatePresence>
+        {needsReconnect && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg"
+          >
+            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-amber-900 font-medium mb-1">
+                Drive Permissions Update Required
+              </p>
+              <p className="text-sm text-amber-700 mb-3">
+                Your Google Drive connection needs to be updated to access all your files.
+                Click reconnect to grant the latest permissions.
+              </p>
+              <button
+                onClick={handleReconnectDrive}
+                disabled={isReconnecting}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isReconnecting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Reconnecting...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    Reconnect Google Drive
+                  </>
+                )}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Color legend */}
       <div className="flex items-center gap-4 text-sm">

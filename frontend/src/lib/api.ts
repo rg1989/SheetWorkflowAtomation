@@ -22,6 +22,13 @@ export interface AuthUser {
   driveConnected: boolean  // NEW: whether user has Drive scopes
 }
 
+export interface DriveStatus {
+  connected: boolean
+  scopes: string[]
+  hasLegacyScope: boolean
+  needsReconnect: boolean
+}
+
 // Auth API
 export const authApi = {
   me: (): Promise<AuthUser> =>
@@ -36,6 +43,17 @@ export const authApi = {
     }).then(() => undefined),
 
   loginUrl: (): string => `${API_BASE}/auth/login`,
+
+  driveStatus: (): Promise<DriveStatus> =>
+    fetch(`${API_BASE}/auth/drive-status`, { ...defaultFetchOptions }).then((r) =>
+      r.ok ? r.json() : Promise.reject(new Error('Failed to get Drive status'))
+    ),
+
+  disconnectDrive: (): Promise<{ success: boolean; message: string }> =>
+    fetch(`${API_BASE}/auth/disconnect-drive`, {
+      ...defaultFetchOptions,
+      method: 'POST',
+    }).then((r) => r.json()),
 }
 
 async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
