@@ -90,6 +90,12 @@ def _handle_drive_error(e: HttpError, file_id: str):
     if status_code == 403:
         if "storageQuota" in error_reason:
             detail = "Google Drive storage quota exceeded."
+        elif "insufficientPermissions" in error_reason or "insufficientFilePermissions" in error_reason:
+            detail = (
+                f"Insufficient permissions to access file {file_id}. "
+                "Your token may have limited Drive scope (drive.file instead of drive.readonly). "
+                "Please disconnect and reconnect Google Drive to update your permissions."
+            )
         else:
             detail = (
                 f"Access denied to file {file_id}. "
@@ -98,10 +104,18 @@ def _handle_drive_error(e: HttpError, file_id: str):
         raise HTTPException(status_code=403, detail=detail)
 
     if status_code == 404:
-        detail = (
-            "File not found. It may have been deleted or moved, "
-            "or you may not have access."
-        )
+        # Check if error reason indicates insufficient scope
+        if "insufficientFilePermissions" in error_reason or "notFound" in error_reason:
+            detail = (
+                "File not accessible. This may be due to insufficient Drive permissions. "
+                "If you recently updated permissions, please disconnect and reconnect Google Drive "
+                "to get the latest access scope (drive.readonly)."
+            )
+        else:
+            detail = (
+                "File not found. It may have been deleted or moved, "
+                "or you may not have access."
+            )
         raise HTTPException(status_code=404, detail=detail)
 
     # Other errors

@@ -131,6 +131,14 @@ async def download_drive_file(
         HTTPException 404: File not found
     """
     try:
+        # Log user's current scopes for debugging
+        logger.info(
+            "Downloading Drive file %s for user %s with scopes: %s",
+            request.file_id,
+            current_user.id,
+            current_user.drive_scopes
+        )
+
         # Build service objects
         drive_service = await build_drive_service(current_user, db)
         sheets_service = await build_sheets_service(current_user, db)

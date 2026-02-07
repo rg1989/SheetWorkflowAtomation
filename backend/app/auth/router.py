@@ -191,22 +191,30 @@ async def me(current_user: UserDB = Depends(get_current_user)):
 async def drive_status(current_user: UserDB = Depends(get_current_user)):
     """Return Drive connection status and granted scopes."""
     if not current_user.drive_scopes:
-        return {"connected": False, "scopes": []}
+        return {
+            "connected": False,
+            "scopes": [],
+            "hasLegacyScope": False,
+            "needsReconnect": False
+        }
 
     scopes = current_user.drive_scopes.split()
+    has_legacy_drive_file = "https://www.googleapis.com/auth/drive.file" in scopes
+    has_drive_readonly = "https://www.googleapis.com/auth/drive.readonly" in scopes
+    has_spreadsheets = "https://www.googleapis.com/auth/spreadsheets" in scopes
+
     # Accept either drive.file (legacy) or drive.readonly (new)
-    has_drive_scope = (
-        "https://www.googleapis.com/auth/drive.file" in scopes or
-        "https://www.googleapis.com/auth/drive.readonly" in scopes
-    )
-    connected = (
-        has_drive_scope and
-        "https://www.googleapis.com/auth/spreadsheets" in scopes
-    )
+    has_drive_scope = has_legacy_drive_file or has_drive_readonly
+    connected = has_drive_scope and has_spreadsheets
+
+    # User needs to reconnect if they have legacy drive.file scope
+    needs_reconnect = has_legacy_drive_file and not has_drive_readonly
 
     return {
         "connected": connected,
         "scopes": scopes,
+        "hasLegacyScope": has_legacy_drive_file,
+        "needsReconnect": needs_reconnect,
     }
 
 
