@@ -372,3 +372,10 @@ export interface ExportResponse {
   spreadsheet_url: string
   updated_cells: number
 }
+
+/** Full result data with all rows for preview and search */
+export interface FullResultData {
+  columns: string[]
+  data: Record<string, unknown>[]
+  rowCount: number
+}

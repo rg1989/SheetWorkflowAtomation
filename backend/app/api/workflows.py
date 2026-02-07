@@ -477,6 +477,58 @@ async def run_workflow(
                 pass
 
 
+@router.get("/{workflow_id}/results/{run_id}")
+async def get_workflow_result_data(
+    workflow_id: str,
+    run_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user),
+):
+    """
+    Get the full result data of a workflow run as JSON.
+    Returns all rows and columns for preview and search.
+    """
+    # Verify the run exists, belongs to this workflow, and to current user
+    result = await db.execute(
+        select(RunDB).where(
+            RunDB.id == run_id,
+            RunDB.workflow_id == workflow_id,
+            RunDB.user_id == current_user.id,
+        )
+    )
+    run = result.scalar_one_or_none()
+
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    if run.status != RunStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail="Run not completed successfully")
+
+    output_path = run.output_path
+    if not output_path or not os.path.exists(output_path):
+        raise HTTPException(status_code=404, detail="Result file not found or expired")
+
+    # Read the Excel file into DataFrame
+    df = pd.read_excel(output_path, engine='openpyxl')
+
+    # Convert full DataFrame to JSON records
+    records = df.to_dict('records')
+
+    # Sanitize NaN and datetime values (same pattern as run endpoint)
+    for row in records:
+        for key, value in row.items():
+            if isinstance(value, float) and math.isnan(value):
+                row[key] = None
+            elif hasattr(value, 'isoformat'):  # datetime
+                row[key] = value.isoformat()
+
+    return {
+        "columns": list(df.columns),
+        "data": records,
+        "rowCount": len(df),
+    }
+
+
 @router.get("/{workflow_id}/download/{run_id}")
 async def download_workflow_result(
     workflow_id: str,
@@ -496,21 +548,21 @@ async def download_workflow_result(
         )
     )
     run = result.scalar_one_or_none()
-    
+
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
-    
+
     if run.status != RunStatus.COMPLETED:
         raise HTTPException(status_code=400, detail="Run not completed successfully")
-    
+
     output_path = run.output_path
     if not output_path or not os.path.exists(output_path):
         raise HTTPException(status_code=404, detail="Result file not found or expired")
-    
+
     # Read the file
     with open(output_path, 'rb') as f:
         content = f.read()
-    
+
     # Return as downloadable file
     return StreamingResponse(
         io.BytesIO(content),

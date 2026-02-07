@@ -7,6 +7,7 @@ import type {
   RunResult,
   DriveFileResponse,
   ExportResponse,
+  FullResultData,
 } from '../types'
 
 const API_BASE = '/api'
@@ -144,6 +145,12 @@ export const workflowApi = {
    */
   downloadUrl: (workflowId: string, runId: string) =>
     `${API_BASE}/workflows/${workflowId}/download/${runId}`,
+
+  /**
+   * Get full result data for preview and search.
+   */
+  getResultData: (workflowId: string, runId: string) =>
+    fetchJSON<FullResultData>(`/workflows/${workflowId}/results/${runId}`),
 }
 
 // Run API
