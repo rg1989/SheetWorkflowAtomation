@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 5 of 6 (Workflow Run Integration)
-Plan: 01 of 1 in phase
+Plan: 02 of 2 in phase
 Status: Phase complete
-Last activity: 2026-02-07 — Completed 05-01-PLAN.md (Workflow Run Integration)
+Last activity: 2026-02-07 — Completed 05-02-PLAN.md (Frontend Workflow Run Integration)
 
-Progress: [█████████░] 90%
+Progress: [█████████░] 95%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
+- Total plans completed: 10
 - Average duration: 7 min
-- Total execution time: 1.10 hours
+- Total execution time: 1.17 hours
 
 **By Phase:**
 
@@ -31,14 +31,14 @@ Progress: [█████████░] 90%
 | 02-backend-drive-service | 2/2 | 5 min | 2.5 min |
 | 03-backend-drive-endpoints | 1/1 | 2 min | 2.0 min |
 | 04-frontend-picker-ui | 2/2 | 53 min | 26.5 min |
-| 05-workflow-integration | 1/1 | 2 min | 2.0 min |
+| 05-workflow-integration | 2/2 | 6 min | 3.0 min |
 | 06-export-to-drive | 1/1 | 2 min | 2.0 min |
 
 **Recent Trend:**
 - 06-01: 2 min (Export to Drive)
-- 04-01: 3 min (Frontend Picker Foundation)
 - 04-02: 50 min (FilesStep Drive Integration)
-- 05-01: 2 min (Workflow Run Integration)
+- 05-01: 2 min (Workflow Run Integration - Backend)
+- 05-02: 4 min (Workflow Run Integration - Frontend)
 
 *Updated after each plan completion*
 
@@ -94,6 +94,11 @@ Recent decisions affecting current work:
 - Build Drive/Sheets services lazily (only when Drive files present) - 05-01
 - Use read_sheet_to_df for Google Sheets with tab selection - 05-01
 - Track file_info_list with mix of filenames and Drive IDs for audit trail - 05-01
+- Use useDriveFilePicker hook for file selection at runtime (reuse from FilesStep) - 05-02
+- Show preview table with first 3 rows and 5 columns for Drive files - 05-02
+- Version warning compares ISO timestamps (not strings) to detect unchanged files - 05-02
+- Drive files always use headerRow=1 (not configurable) since API returns normalized data - 05-02
+- Extract FileSlotCard component for file slot rendering to reduce main component complexity - 05-02
 
 ### Pending Todos
 
@@ -108,7 +113,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-07 13:36:37 UTC
-Stopped at: Completed Phase 5 Plan 1 (Workflow Run Integration) - Backend workflow execution accepts mixed local and Drive file inputs
+Last session: 2026-02-07 13:45:48 UTC
+Stopped at: Completed Phase 5 Plan 2 (Frontend Workflow Run Integration) - RunWorkflowPage supports Drive file selection with tab picker, preview, version warnings, and mixed-source execution
 Resume file: None
-Next: Frontend workflow run UI updates to send Drive file metadata and handle tab selection
+Next: Phase 5 complete - Ready for Phase 6 (Export to Drive) or final integration testing
