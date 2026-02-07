@@ -20,7 +20,9 @@ export function generateId(): string {
  * Format a date string for display
  */
 export function formatDate(dateString: string): string {
-  const date = new Date(dateString)
+  // Backend sends UTC timestamps without 'Z' suffix, so add it if missing
+  const normalizedDateString = dateString.endsWith('Z') ? dateString : dateString + 'Z'
+  const date = new Date(normalizedDateString)
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -34,7 +36,9 @@ export function formatDate(dateString: string): string {
  * Format a date as relative time (e.g., "2 hours ago")
  */
 export function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString)
+  // Backend sends UTC timestamps without 'Z' suffix, so add it if missing
+  const normalizedDateString = dateString.endsWith('Z') ? dateString : dateString + 'Z'
+  const date = new Date(normalizedDateString)
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffSeconds = Math.floor(diffMs / 1000)

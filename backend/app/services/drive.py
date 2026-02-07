@@ -217,7 +217,8 @@ async def _download_binary_to_df(
                 new_columns.append(str(col).strip())
         df.columns = new_columns
 
-        logger.info("Downloaded and parsed %s file %s (%d rows)", format, file_id, len(df))
+        logger.info("Downloaded and parsed %s file %s (%d rows, %d cols) with header_row=%d. Columns: %s",
+                    format, file_id, len(df), len(df.columns), header_row, list(df.columns)[:10])
         return df
 
     except HttpError as e:

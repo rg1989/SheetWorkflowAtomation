@@ -376,7 +376,7 @@ function FileSlotCard({
             className={cn(
               'inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg cursor-pointer transition-colors',
               uploaded?.validated
-                ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                ? 'border border-primary-300 bg-primary-50 text-primary-700 hover:bg-primary-100'
                 : 'bg-primary-500 text-white hover:bg-primary-600'
             )}
           >
@@ -400,9 +400,9 @@ function FileSlotCard({
               size="sm"
               onClick={openDrivePicker}
               disabled={isPickerLoading}
-              className="inline-flex items-center gap-2"
+              className="inline-flex items-center gap-2 font-semibold hover:border-blue-300 hover:bg-blue-50"
             >
-              <Cloud className="w-4 h-4" />
+              <Cloud className="w-4 h-4 text-blue-600" />
               {driveFile ? 'Change' : 'Pick from Drive'}
             </Button>
           ) : (
@@ -410,9 +410,9 @@ function FileSlotCard({
               variant="secondary"
               size="sm"
               onClick={loginWithDrive}
-              className="inline-flex items-center gap-2"
+              className="inline-flex items-center gap-2 font-semibold hover:border-blue-300 hover:bg-blue-50"
             >
-              <Cloud className="w-4 h-4" />
+              <Cloud className="w-4 h-4 text-blue-600" />
               Connect Drive
             </Button>
           )}
