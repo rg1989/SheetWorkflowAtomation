@@ -29,6 +29,9 @@ from app.models.workflow import (
 from app.models.run import Run, RunStatus
 from app.core.parser import ExcelParser
 from app.core.engine import WorkflowEngine
+from app.services.google_auth import build_drive_service, build_sheets_service
+from app.services.drive import download_drive_file_to_df
+from app.services.sheets import read_sheet_to_df
 
 router = APIRouter()
 
@@ -214,20 +217,29 @@ async def delete_workflow(
 @router.post("/{workflow_id}/run")
 async def run_workflow(
     workflow_id: str,
-    files: List[UploadFile] = File(...),
+    files: List[UploadFile] = File(default=[]),
     file_configs: str = Form(...),  # JSON string with file ID -> {sheetName, headerRow} mapping
     db: AsyncSession = Depends(get_db),
     current_user: UserDB = Depends(get_current_user),
 ):
     """
-    Run a workflow with uploaded files.
-    
+    Run a workflow with uploaded files and/or Drive file references.
+
     Args:
         workflow_id: The workflow to run
-        files: Uploaded Excel files (one per expected file in workflow)
-        file_configs: JSON string mapping file IDs to their sheet/header config
-                     Format: {"fileId": {"sheetName": "Sheet1", "headerRow": 1}, ...}
-    
+        files: Uploaded Excel files (optional if using Drive files)
+        file_configs: JSON string mapping file IDs to their sheet/header/source config
+                     Format: {
+                         "fileId": {
+                             "source": "local",  // or "drive"
+                             "sheetName": "Sheet1",
+                             "headerRow": 1,
+                             // For Drive files:
+                             "driveFileId": "1ABCxyz...",
+                             "driveMimeType": "application/vnd.google-apps.spreadsheet"
+                         }
+                     }
+
     Returns:
         Preview data and run ID for downloading the result
     """
@@ -252,44 +264,120 @@ async def run_workflow(
     # Get workflow config
     workflow_config = workflow.config or {}
     expected_files = workflow_config.get("files", [])
-    
-    if len(files) != len(expected_files):
+
+    # Count expected local files (backward compat: missing source = local)
+    expected_local_count = sum(
+        1 for expected_file in expected_files
+        if configs.get(expected_file.get("id"), {}).get("source", "local") == "local"
+    )
+
+    if len(files) != expected_local_count:
         raise HTTPException(
-            status_code=400, 
-            detail=f"Expected {len(expected_files)} files, got {len(files)}"
+            status_code=400,
+            detail=f"Expected {expected_local_count} local files, got {len(files)}"
         )
     
-    # Parse each uploaded file into a DataFrame
+    # Parse each file (local uploads + Drive files) into a DataFrame
     parser = ExcelParser()
     dataframes: Dict[str, pd.DataFrame] = {}
     temp_files: List[str] = []
-    
+    file_info_list: List[str] = []  # Track file names/IDs for audit
+
     # Generate a unique run ID
     run_id = str(uuid.uuid4())
     now = datetime.utcnow()
-    
+
+    # Build Drive/Sheets services once for efficiency
+    drive_service = None
+    sheets_service = None
+
     try:
-        for i, (upload_file, expected_file) in enumerate(zip(files, expected_files)):
+        local_file_index = 0  # Track which local file to use
+
+        for expected_file in expected_files:
             file_id = expected_file.get("id")
-            
+
             # Get config for this file
             file_config = configs.get(file_id, {})
+            source = file_config.get("source", "local")  # Backward compat default
             sheet_name = file_config.get("sheetName")
             header_row = file_config.get("headerRow", 1)
-            
-            # Save to temp file
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp:
-                content = await upload_file.read()
-                tmp.write(content)
-                temp_files.append(tmp.name)
-            
-            # Parse with correct sheet and header row
-            df = parser.parse(
-                temp_files[-1], 
-                sheet_name=sheet_name, 
-                header_row=header_row - 1  # Convert to 0-indexed
-            )
-            dataframes[file_id] = df
+
+            if source == "local":
+                # Process local upload
+                if local_file_index >= len(files):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Missing local file for file ID '{file_id}'"
+                    )
+
+                upload_file = files[local_file_index]
+                local_file_index += 1
+
+                # Save to temp file
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp:
+                    content = await upload_file.read()
+                    tmp.write(content)
+                    temp_files.append(tmp.name)
+
+                # Parse with correct sheet and header row
+                df = parser.parse(
+                    temp_files[-1],
+                    sheet_name=sheet_name,
+                    header_row=header_row - 1  # Convert to 0-indexed
+                )
+                dataframes[file_id] = df
+                file_info_list.append(upload_file.filename)
+
+            elif source == "drive":
+                # Process Drive file
+                drive_file_id = file_config.get("driveFileId")
+                drive_mime_type = file_config.get("driveMimeType")
+
+                if not drive_file_id:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Missing driveFileId for Drive file '{file_id}'"
+                    )
+
+                try:
+                    # Build services lazily (only if Drive files present)
+                    if drive_service is None:
+                        drive_service = await build_drive_service(current_user, db)
+                    if sheets_service is None:
+                        sheets_service = await build_sheets_service(current_user, db)
+
+                    # Download Drive file to DataFrame
+                    if drive_mime_type == "application/vnd.google-apps.spreadsheet" and sheet_name:
+                        # Google Sheets with specific tab
+                        df = await read_sheet_to_df(
+                            sheets_service,
+                            drive_file_id,
+                            range_name=sheet_name
+                        )
+                    else:
+                        # Other Drive files (Excel, CSV) or Sheets without tab selection
+                        df = await download_drive_file_to_df(
+                            drive_service,
+                            drive_file_id,
+                            mime_type=drive_mime_type,
+                            sheets_service=sheets_service
+                        )
+
+                    dataframes[file_id] = df
+                    file_info_list.append(f"Drive:{drive_file_id}")
+
+                except Exception as drive_err:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Failed to download Drive file '{drive_file_id}': {str(drive_err)}"
+                    )
+
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid source '{source}' for file '{file_id}'"
+                )
         
         # Execute the workflow
         engine = WorkflowEngine(workflow_config)
@@ -308,7 +396,7 @@ async def run_workflow(
             user_id=current_user.id,
             status=RunStatus.COMPLETED,
             input_files=json.dumps({
-                "files": [f.filename for f in files],
+                "files": file_info_list,  # Mix of filenames and Drive IDs
                 "configs": configs,
             }),
             output_path=output_path,
@@ -322,7 +410,7 @@ async def run_workflow(
             completed_at=now,
         )
         db.add(db_run)
-        
+
         # Add audit log
         audit = AuditLogDB(
             run_id=run_id,
@@ -330,7 +418,7 @@ async def run_workflow(
             details=json.dumps({
                 "workflow_id": workflow_id,
                 "workflow_name": workflow.name,
-                "files": [f.filename for f in files],
+                "files": file_info_list,
                 "row_count": len(output_df),
             }),
             timestamp=now,
@@ -357,6 +445,9 @@ async def run_workflow(
             "warnings": warnings,
         }
         
+    except HTTPException:
+        # Re-raise HTTPExceptions as-is (already formatted)
+        raise
     except Exception as e:
         # Create failed run record
         db_run = RunDB(
@@ -365,7 +456,7 @@ async def run_workflow(
             user_id=current_user.id,
             status=RunStatus.FAILED,
             input_files=json.dumps({
-                "files": [f.filename for f in files],
+                "files": file_info_list if file_info_list else [f.filename for f in files],
                 "configs": configs,
             }),
             result_summary=json.dumps({"error": str(e)}),
@@ -374,7 +465,7 @@ async def run_workflow(
         )
         db.add(db_run)
         await db.commit()
-        
+
         raise HTTPException(status_code=400, detail=f"Workflow execution failed: {str(e)}")
     
     finally:
