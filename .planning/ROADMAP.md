@@ -31,10 +31,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Access tokens refresh automatically when expired without user re-authentication
   4. Token expiry (1-hour) does not break Drive operations during workflows
   5. Backend endpoint exposes scope status so frontend can detect if Drive features are available
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: TBD during planning
+- [ ] 01-01-PLAN.md -- Database token columns, Fernet encryption module, migration
+- [ ] 01-02-PLAN.md -- OAuth flow extension with Drive scopes, token refresh, drive-status endpoint
 
 ### Phase 2: Backend Drive Service
 **Goal**: Backend can read Drive files (Sheets, Excel, CSV) and handle API errors gracefully
