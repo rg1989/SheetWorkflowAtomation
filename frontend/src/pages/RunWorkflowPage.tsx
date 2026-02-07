@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Upload, Play, Download, FileSpreadsheet, Check, AlertCircle, ChevronDown, Loader2, Cloud } from 'lucide-react'
+import { ArrowLeft, Upload, Play, Download, FileSpreadsheet, Check, AlertCircle, ChevronDown, Loader2, Cloud, ExternalLink } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -361,6 +361,9 @@ export function RunWorkflowPage() {
     previewData?: Record<string, unknown>[]
     warnings?: string[]
   } | null>(null)
+  // Track Drive export state
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportResult, setExportResult] = useState<{ url: string; id: string } | null>(null)
 
   // Validate file columns against expected columns
   const validateFileColumns = useCallback((
@@ -664,6 +667,7 @@ export function RunWorkflowPage() {
 
     setIsProcessing(true)
     setResult(null)
+    setExportResult(null) // Reset export result on new run
 
     try {
       // Prepare files array and configs with mixed sources
@@ -724,6 +728,23 @@ export function RunWorkflowPage() {
       setIsProcessing(false)
     }
   }, [workflow, allFilesUploaded, uploadedFiles, driveFiles, id])
+
+  const handleExportToDrive = useCallback(async () => {
+    if (!workflow || !result?.runId) return
+
+    setIsExporting(true)
+    try {
+      const exportResponse = await driveApi.exportCreate(result.runId, workflow.name + ' - Results')
+      setExportResult({
+        url: exportResponse.spreadsheet_url,
+        id: exportResponse.spreadsheet_id,
+      })
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to export to Drive')
+    } finally {
+      setIsExporting(false)
+    }
+  }, [workflow, result])
 
   if (isLoading) {
     return (
@@ -861,14 +882,47 @@ export function RunWorkflowPage() {
                   </p>
                 </div>
                 {result.success && result.runId && id && (
-                  <a
-                    href={workflowApi.downloadUrl(id, result.runId)}
-                    download
-                    className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
-                  >
-                    <Download className="w-4 h-4" />
-                    Download Result
-                  </a>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={workflowApi.downloadUrl(id, result.runId)}
+                      download
+                      className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download Result
+                    </a>
+                    {driveConnected && !exportResult && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleExportToDrive}
+                        disabled={isExporting}
+                      >
+                        {isExporting ? (
+                          <>
+                            <Spinner size="sm" className="mr-2" />
+                            Exporting...
+                          </>
+                        ) : (
+                          <>
+                            <Cloud className="w-4 h-4" />
+                            Export to Drive
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    {exportResult && (
+                      <a
+                        href={exportResult.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        View in Google Sheets
+                      </a>
+                    )}
+                  </div>
                 )}
               </div>
               
