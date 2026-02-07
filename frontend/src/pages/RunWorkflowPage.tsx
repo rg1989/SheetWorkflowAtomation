@@ -467,10 +467,13 @@ export function RunWorkflowPage() {
       // 3. Download file metadata + sample data
       const downloadResult = await driveApi.downloadFile(pickedFile.id)
 
-      // 4. If Google Sheet, also fetch available tabs
+      // 4. If Google Sheet or Excel file, also fetch available tabs
+      const EXCEL_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      const SHEETS_MIME = 'application/vnd.google-apps.spreadsheet'
+
       let availableTabs: DriveRunFileState['availableTabs'] = undefined
-      if (pickedFile.mimeType === 'application/vnd.google-apps.spreadsheet') {
-        const tabsResult = await driveApi.getSheetTabs(pickedFile.id)
+      if (pickedFile.mimeType === SHEETS_MIME || pickedFile.mimeType === EXCEL_MIME) {
+        const tabsResult = await driveApi.getSheetTabs(pickedFile.id, pickedFile.mimeType)
         availableTabs = tabsResult.tabs
       }
 

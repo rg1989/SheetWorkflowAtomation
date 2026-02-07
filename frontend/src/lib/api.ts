@@ -239,10 +239,10 @@ export const driveApi = {
       }),
     }),
 
-  /** Fetch list of sheet tabs for a Google Sheets spreadsheet */
-  getSheetTabs: (spreadsheetId: string) =>
+  /** Fetch list of sheet tabs for a Google Sheets spreadsheet or Excel file */
+  getSheetTabs: (fileId: string, mimeType?: string) =>
     fetchJSON<{ tabs: Array<{ title: string; index: number; sheetId: number }> }>(
-      `/drive/sheets/tabs?spreadsheet_id=${encodeURIComponent(spreadsheetId)}`
+      `/drive/sheets/tabs?file_id=${encodeURIComponent(fileId)}${mimeType ? `&mime_type=${encodeURIComponent(mimeType)}` : ''}`
     ),
 
   /** Create a new Google Sheet with workflow results */

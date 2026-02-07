@@ -44,12 +44,15 @@ export function DriveFilePicker({ onFileReady, onError, disabled }: DriveFilePic
         }
       })
 
-      // Fetch sheet tabs if this is a Google Sheets file
+      // Fetch sheet tabs if this is a Google Sheets file or Excel file
+      const EXCEL_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      const SHEETS_MIME = 'application/vnd.google-apps.spreadsheet'
+
       let availableSheets: string[] | undefined
       let sheetName: string | undefined
-      if (pickerFile.mimeType === 'application/vnd.google-apps.spreadsheet') {
+      if (pickerFile.mimeType === SHEETS_MIME || pickerFile.mimeType === EXCEL_MIME) {
         try {
-          const tabsResult = await driveApi.getSheetTabs(pickerFile.id)
+          const tabsResult = await driveApi.getSheetTabs(pickerFile.id, pickerFile.mimeType)
           availableSheets = tabsResult.tabs.map(t => t.title)
           sheetName = availableSheets[0] // Default to first tab
         } catch (err) {
