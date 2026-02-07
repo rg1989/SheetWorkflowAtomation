@@ -22,7 +22,7 @@ export function useDriveFilePicker({ onSelect, onError }: UseDriveFilePickerOpti
         clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
         developerKey: import.meta.env.VITE_GOOGLE_API_KEY,
         token: tokenData.access_token,
-        viewId: 'DOCS',
+        viewId: 'SPREADSHEETS',  // Show only Google Sheets files
         supportDrives: true,     // Enable Shared Drives (SELECT-03)
         multiselect: false,
         showUploadView: false,

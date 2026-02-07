@@ -86,7 +86,7 @@ export function DriveFilePicker({ onFileReady, onError, disabled }: DriveFilePic
           {isParsing ? 'Loading file...' : isPickerLoading ? 'Opening Drive...' : 'Select from Google Drive'}
         </div>
         <div className="text-sm text-slate-500">
-          Browse My Drive and Shared Drives
+          Browse Google Sheets from Drive
         </div>
       </div>
     </button>
