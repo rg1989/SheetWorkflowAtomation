@@ -24,6 +24,8 @@ interface UploadedFileState {
   selectedSheet?: string
   headerRow: number
   columns?: ColumnInfo[]
+  sampleData?: Record<string, unknown>[]
+  rowCount?: number
   isRevalidating?: boolean
 }
 
@@ -206,6 +208,45 @@ function FileSlotCard({
                   <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
                 )}
               </div>
+
+              {/* Preview data */}
+              {uploaded.sampleData && uploaded.sampleData.length > 0 && (
+                <div className="mt-3 p-2 bg-white rounded border border-slate-200">
+                  <p className="text-xs font-medium text-slate-700 mb-2">
+                    Preview: {uploaded.rowCount} rows, {uploaded.columns?.length} columns
+                  </p>
+                  <div className="overflow-x-auto max-h-40">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-200">
+                          {uploaded.columns?.slice(0, 5).map((col) => (
+                            <th key={col.name} className="px-2 py-1 text-left font-medium text-slate-600">
+                              {col.name}
+                            </th>
+                          ))}
+                          {(uploaded.columns?.length || 0) > 5 && (
+                            <th className="px-2 py-1 text-left text-slate-400">...</th>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {uploaded.sampleData.slice(0, 3).map((row, rowIdx) => (
+                          <tr key={rowIdx} className="border-b border-slate-100">
+                            {uploaded.columns?.slice(0, 5).map((col) => (
+                              <td key={col.name} className="px-2 py-1 text-slate-600 truncate max-w-[100px]">
+                                {row[col.name] != null ? String(row[col.name]) : '—'}
+                              </td>
+                            ))}
+                            {(uploaded.columns?.length || 0) > 5 && (
+                              <td className="px-2 py-1 text-slate-400">...</td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {uploaded.error && (
                 <p className="text-red-600 text-xs mt-1">{uploaded.error}</p>
@@ -574,6 +615,8 @@ export function RunWorkflowPage() {
           selectedSheet: parseResult.sheetName,
           headerRow: expectedHeaderRow,
           columns: parseResult.columns,
+          sampleData: parseResult.sampleData,
+          rowCount: parseResult.rowCount,
           error: errorMsg,
         }
       }))
@@ -614,6 +657,8 @@ export function RunWorkflowPage() {
           validated,
           selectedSheet: newSheet,
           columns: parseResult.columns,
+          sampleData: parseResult.sampleData,
+          rowCount: parseResult.rowCount,
           error: validated ? undefined : getMissingColumnsError(uploadedColumns, expectedColumns),
           isRevalidating: false
         }
@@ -656,6 +701,8 @@ export function RunWorkflowPage() {
           validated,
           headerRow: newHeaderRow,
           columns: parseResult.columns,
+          sampleData: parseResult.sampleData,
+          rowCount: parseResult.rowCount,
           error: validated ? undefined : getMissingColumnsError(uploadedColumns, expectedColumns),
           isRevalidating: false
         }
