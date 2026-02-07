@@ -63,10 +63,10 @@ Plans:
   3. Frontend can retrieve OAuth access token via GET /api/auth/token for Picker authentication
   4. Drive file metadata (name, owner, last modified, webViewLink) is stored and returned with file operations
   5. Error responses map to user-friendly messages (not raw Google API errors)
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 03-01: TBD during planning
+- [ ] 03-01-PLAN.md -- Drive/Sheets REST endpoints with Pydantic models + Picker token endpoint
 
 ### Phase 4: Frontend Picker UI
 **Goal**: Users can browse and select files from Drive via Google Picker
