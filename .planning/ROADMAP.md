@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Token Management Foundation** - OAuth scope expansion with secure token storage and automatic refresh
 - [x] **Phase 2: Backend Drive Service** - Server-side Drive/Sheets API integration with error handling
 - [x] **Phase 3: Backend Drive Endpoints** - REST API exposing Drive operations
-- [ ] **Phase 4: Frontend Picker UI** - Google Picker integration for Drive file selection
+- [x] **Phase 4: Frontend Picker UI** - Google Picker integration for Drive file selection
 - [ ] **Phase 5: Workflow Integration** - Drive files as workflow inputs with mixed sources
 - [x] **Phase 6: Export to Drive** - Push workflow results back to Drive as Google Sheets
 
@@ -81,8 +81,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 04-01-PLAN.md -- Types, API client, auth context, picker hook and component
-- [ ] 04-02-PLAN.md -- FilesStep and WorkflowWizard integration with dual-source input
+- [x] 04-01-PLAN.md -- Types, API client, auth context, picker hook and component
+- [x] 04-02-PLAN.md -- FilesStep and WorkflowWizard integration with dual-source input
 
 ### Phase 5: Workflow Integration
 **Goal**: Workflows accept Drive files as inputs and execute with mixed sources
@@ -124,6 +124,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 1. Token Management Foundation | 2/2 | Complete | 2026-02-07 |
 | 2. Backend Drive Service | 2/2 | Complete | 2026-02-07 |
 | 3. Backend Drive Endpoints | 1/1 | Complete | 2026-02-07 |
-| 4. Frontend Picker UI | 0/2 | Not started | - |
+| 4. Frontend Picker UI | 2/2 | Complete | 2026-02-07 |
 | 5. Workflow Integration | 0/TBD | Not started | - |
 | 6. Export to Drive | 1/1 | Complete | 2026-02-07 |

@@ -8,10 +8,10 @@
 - [x] **AUTH-03**: Refresh tokens stored encrypted in database using Fernet encryption
 
 ### File Selection
-- [ ] **SELECT-01**: User can browse and select files from Drive via Google Picker popup widget
+- [x] **SELECT-01**: User can browse and select files from Drive via Google Picker popup widget
 - [x] **SELECT-02**: App stores and displays Drive file metadata (name, owner, last modified timestamp, webViewLink)
-- [ ] **SELECT-03**: User can select files from Shared Drives (Team Drives) in addition to My Drive
-- [ ] **SELECT-04**: User can mix Drive files and local uploads as workflow inputs (some from Drive, some uploaded)
+- [x] **SELECT-03**: User can select files from Shared Drives (Team Drives) in addition to My Drive
+- [x] **SELECT-04**: User can mix Drive files and local uploads as workflow inputs (some from Drive, some uploaded)
 
 ### Input from Drive
 - [x] **INPUT-01**: App reads Google Sheets natively via Sheets API and converts to DataFrame for processing
@@ -63,10 +63,10 @@
 | AUTH-01 | Phase 1 | Complete |
 | AUTH-02 | Phase 1 | Complete |
 | AUTH-03 | Phase 1 | Complete |
-| SELECT-01 | Phase 4 | Pending |
+| SELECT-01 | Phase 4 | Complete |
 | SELECT-02 | Phase 3 | Complete |
-| SELECT-03 | Phase 4 | Pending |
-| SELECT-04 | Phase 4 | Pending |
+| SELECT-03 | Phase 4 | Complete |
+| SELECT-04 | Phase 4 | Complete |
 | INPUT-01 | Phase 2 | Complete |
 | INPUT-02 | Phase 2 | Complete |
 | INPUT-03 | Phase 2 | Complete |
