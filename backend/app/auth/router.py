@@ -93,7 +93,14 @@ async def callback(request: Request, db: AsyncSession = Depends(get_db)):
     await db.commit()
     request.session["user_id"] = user.id
     # Redirect to app root (SPA will load)
-    return RedirectResponse(url="/", status_code=302)
+    # In dev mode, frontend runs on a separate Vite dev server
+    frontend_url = os.environ.get("FRONTEND_URL", "")
+    if not frontend_url:
+        # Auto-detect: if no static dir is served, assume dev mode on port 5173
+        from app.main import STATIC_DIR
+        if not STATIC_DIR.exists():
+            frontend_url = "http://localhost:5173"
+    return RedirectResponse(url=frontend_url + "/" if frontend_url else "/", status_code=302)
 
 
 @router.get("/me")

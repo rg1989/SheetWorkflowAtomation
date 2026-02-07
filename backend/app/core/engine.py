@@ -84,6 +84,17 @@ class WorkflowEngine:
             # Default to left join behavior
             return self._get_keys_from_file(primary_file_id, key_mappings, dataframes, warnings)
     
+    @staticmethod
+    def _clean_key_value(val: Any) -> Optional[str]:
+        """
+        Normalize a key value: convert to string, strip whitespace.
+        Returns None if the value is empty/whitespace-only after stripping.
+        """
+        if pd.isna(val):
+            return None
+        s = str(val).strip()
+        return s if s else None
+
     def _get_keys_from_file(
         self,
         file_id: str,
@@ -106,7 +117,17 @@ class WorkflowEngine:
             warnings.append(f"Key column '{key_column}' not found in file. Available: {list(df.columns)}")
             return None
         
-        return df[key_column].dropna().unique().tolist()
+        # Clean keys: drop NaN, strip whitespace, filter out empty strings
+        raw_keys = df[key_column].dropna()
+        cleaned = raw_keys.apply(lambda v: str(v).strip())
+        # Remove empty strings and deduplicate while preserving order
+        seen: set = set()
+        unique_keys: List[str] = []
+        for k in cleaned:
+            if k and k not in seen:
+                seen.add(k)
+                unique_keys.append(k)
+        return unique_keys
     
     def _get_intersection_keys(
         self,
@@ -120,8 +141,11 @@ class WorkflowEngine:
         for file_id, df in dataframes.items():
             key_column = key_mappings.get(file_id)
             if key_column and key_column in df.columns:
-                # Convert to strings for consistent comparison
-                keys = set(df[key_column].dropna().astype(str).unique())
+                # Convert to strings, strip whitespace, filter empties
+                keys = set(
+                    k for k in df[key_column].dropna().astype(str).str.strip().unique()
+                    if k
+                )
                 all_key_sets.append(keys)
         
         if not all_key_sets:
@@ -147,8 +171,11 @@ class WorkflowEngine:
         for file_id, df in dataframes.items():
             key_column = key_mappings.get(file_id)
             if key_column and key_column in df.columns:
-                # Convert to strings for consistent comparison
-                keys = set(df[key_column].dropna().astype(str).unique())
+                # Convert to strings, strip whitespace, filter empties
+                keys = set(
+                    k for k in df[key_column].dropna().astype(str).str.strip().unique()
+                    if k
+                )
                 all_keys = all_keys | keys
         
         if not all_keys:
@@ -238,7 +265,8 @@ class WorkflowEngine:
                     
                     if file_key_col and file_key_col in df.columns:
                         # Match by key value using this file's key column
-                        matching_rows = df[df[file_key_col].astype(str) == str(key_value)]
+                        # Strip whitespace on both sides for consistent matching
+                        matching_rows = df[df[file_key_col].astype(str).str.strip() == str(key_value).strip()]
                         if len(matching_rows) > 0:
                             file_rows[file_id] = matching_rows.iloc[0]
                         else:
