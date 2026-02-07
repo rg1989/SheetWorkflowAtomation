@@ -1,6 +1,8 @@
 """
 File upload and parsing API endpoints.
 """
+import os
+import tempfile
 from typing import List, Optional
 from fastapi import APIRouter, UploadFile, File, HTTPException, Form, Depends
 
