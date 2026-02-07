@@ -3,7 +3,7 @@ import logging
 import os
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -74,7 +74,9 @@ async def login(request: Request, scope: str = None):
 
     if scope == "drive":
         # Request Drive and Sheets scopes with offline access
-        scopes = "openid email profile https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets"
+        # drive.readonly: Read-only access to all Drive files (needed to download user-selected files)
+        # spreadsheets: Full access to Sheets (needed to create/update output sheets)
+        scopes = "openid email profile https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/spreadsheets"
         extra_params = {
             "access_type": "offline",
             "prompt": "consent"
@@ -166,8 +168,13 @@ async def me(current_user: UserDB = Depends(get_current_user)):
     drive_connected = False
     if current_user.drive_scopes:
         scopes = current_user.drive_scopes.split()
+        # Accept either drive.file (legacy) or drive.readonly (new)
+        has_drive_scope = (
+            "https://www.googleapis.com/auth/drive.file" in scopes or
+            "https://www.googleapis.com/auth/drive.readonly" in scopes
+        )
         drive_connected = (
-            "https://www.googleapis.com/auth/drive.file" in scopes and
+            has_drive_scope and
             "https://www.googleapis.com/auth/spreadsheets" in scopes
         )
 
@@ -187,8 +194,13 @@ async def drive_status(current_user: UserDB = Depends(get_current_user)):
         return {"connected": False, "scopes": []}
 
     scopes = current_user.drive_scopes.split()
+    # Accept either drive.file (legacy) or drive.readonly (new)
+    has_drive_scope = (
+        "https://www.googleapis.com/auth/drive.file" in scopes or
+        "https://www.googleapis.com/auth/drive.readonly" in scopes
+    )
     connected = (
-        "https://www.googleapis.com/auth/drive.file" in scopes and
+        has_drive_scope and
         "https://www.googleapis.com/auth/spreadsheets" in scopes
     )
 
