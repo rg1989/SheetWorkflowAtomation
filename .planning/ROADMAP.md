@@ -97,8 +97,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 05-01-PLAN.md -- Backend mixed-source workflow run endpoint + sheet tabs listing endpoint
-- [ ] 05-02-PLAN.md -- RunWorkflowPage Drive integration with tab selection, preview, and version warnings
+- [x] 05-01-PLAN.md -- Backend mixed-source workflow run endpoint + sheet tabs listing endpoint
+- [x] 05-02-PLAN.md -- RunWorkflowPage Drive integration with tab selection, preview, and version warnings
 
 ### Phase 6: Export to Drive
 **Goal**: Users can push workflow results back to Drive as Google Sheets
@@ -126,5 +126,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 2. Backend Drive Service | 2/2 | Complete | 2026-02-07 |
 | 3. Backend Drive Endpoints | 1/1 | Complete | 2026-02-07 |
 | 4. Frontend Picker UI | 2/2 | Complete | 2026-02-07 |
-| 5. Workflow Integration | 0/TBD | Not started | - |
+| 5. Workflow Integration | 2/2 | Complete | 2026-02-07 |
 | 6. Export to Drive | 1/1 | Complete | 2026-02-07 |

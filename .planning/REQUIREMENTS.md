@@ -17,9 +17,9 @@
 - [x] **INPUT-01**: App reads Google Sheets natively via Sheets API and converts to DataFrame for processing
 - [x] **INPUT-02**: App reads Excel (.xlsx) files stored in Drive by downloading and parsing with existing parser
 - [x] **INPUT-03**: App reads CSV files stored in Drive by downloading and parsing
-- [ ] **INPUT-04**: User sees warning if Drive file hasn't changed since last workflow run (version history awareness)
-- [ ] **INPUT-05**: User can choose which tab/sheet to read from multi-tab Google Sheets (both as input and when selecting write target)
-- [ ] **INPUT-06**: User sees preview of first 10 rows of data after selecting Drive file (before running workflow)
+- [x] **INPUT-04**: User sees warning if Drive file hasn't changed since last workflow run (version history awareness)
+- [x] **INPUT-05**: User can choose which tab/sheet to read from multi-tab Google Sheets (both as input and when selecting write target)
+- [x] **INPUT-06**: User sees preview of first 10 rows of data after selecting Drive file (before running workflow)
 
 ### Output to Drive
 - [x] **OUTPUT-01**: User can create new Google Sheet in Drive with workflow results
@@ -70,9 +70,9 @@
 | INPUT-01 | Phase 2 | Complete |
 | INPUT-02 | Phase 2 | Complete |
 | INPUT-03 | Phase 2 | Complete |
-| INPUT-04 | Phase 5 | Pending |
-| INPUT-05 | Phase 5 | Pending |
-| INPUT-06 | Phase 5 | Pending |
+| INPUT-04 | Phase 5 | Complete |
+| INPUT-05 | Phase 5 | Complete |
+| INPUT-06 | Phase 5 | Complete |
 | OUTPUT-01 | Phase 6 | Complete |
 | OUTPUT-02 | Phase 6 | Complete |
 | OUTPUT-03 | Phase 6 | Complete |
