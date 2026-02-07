@@ -13,7 +13,7 @@ This milestone adds Google Drive integration to an existing workflow automation 
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Token Management Foundation** - OAuth scope expansion with secure token storage and automatic refresh
-- [ ] **Phase 2: Backend Drive Service** - Server-side Drive/Sheets API integration with error handling
+- [x] **Phase 2: Backend Drive Service** - Server-side Drive/Sheets API integration with error handling
 - [ ] **Phase 3: Backend Drive Endpoints** - REST API exposing Drive operations
 - [ ] **Phase 4: Frontend Picker UI** - Google Picker integration for Drive file selection
 - [ ] **Phase 5: Workflow Integration** - Drive files as workflow inputs with mixed sources
@@ -50,8 +50,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md -- Credential builder, Drive file download (Excel/CSV/Sheets export), error handling with retry
-- [ ] 02-02-PLAN.md -- Native Sheets API read, Drive routing update for Google Sheets
+- [x] 02-01-PLAN.md -- Credential builder, Drive file download (Excel/CSV/Sheets export), error handling with retry
+- [x] 02-02-PLAN.md -- Native Sheets API read, Drive routing update for Google Sheets
 
 ### Phase 3: Backend Drive Endpoints
 **Goal**: REST API exposes Drive file operations to frontend
@@ -121,7 +121,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Token Management Foundation | 2/2 | Complete | 2026-02-07 |
-| 2. Backend Drive Service | 0/2 | Not started | - |
+| 2. Backend Drive Service | 2/2 | Complete | 2026-02-07 |
 | 3. Backend Drive Endpoints | 0/TBD | Not started | - |
 | 4. Frontend Picker UI | 0/TBD | Not started | - |
 | 5. Workflow Integration | 0/TBD | Not started | - |

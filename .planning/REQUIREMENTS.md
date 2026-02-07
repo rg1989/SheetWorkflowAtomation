@@ -14,9 +14,9 @@
 - [ ] **SELECT-04**: User can mix Drive files and local uploads as workflow inputs (some from Drive, some uploaded)
 
 ### Input from Drive
-- [ ] **INPUT-01**: App reads Google Sheets natively via Sheets API and converts to DataFrame for processing
-- [ ] **INPUT-02**: App reads Excel (.xlsx) files stored in Drive by downloading and parsing with existing parser
-- [ ] **INPUT-03**: App reads CSV files stored in Drive by downloading and parsing
+- [x] **INPUT-01**: App reads Google Sheets natively via Sheets API and converts to DataFrame for processing
+- [x] **INPUT-02**: App reads Excel (.xlsx) files stored in Drive by downloading and parsing with existing parser
+- [x] **INPUT-03**: App reads CSV files stored in Drive by downloading and parsing
 - [ ] **INPUT-04**: User sees warning if Drive file hasn't changed since last workflow run (version history awareness)
 - [ ] **INPUT-05**: User can choose which tab/sheet to read from multi-tab Google Sheets (both as input and when selecting write target)
 - [ ] **INPUT-06**: User sees preview of first 10 rows of data after selecting Drive file (before running workflow)
@@ -27,8 +27,8 @@
 - [ ] **OUTPUT-03**: Download option remains available alongside Drive push options (always provide local fallback)
 
 ### Error Handling
-- [ ] **ERROR-01**: App handles API rate limit errors (HTTP 429) with exponential backoff and user-friendly messages
-- [ ] **ERROR-02**: App handles permission errors (HTTP 403) with clear messages explaining access issues
+- [x] **ERROR-01**: App handles API rate limit errors (HTTP 429) with exponential backoff and user-friendly messages
+- [x] **ERROR-02**: App handles permission errors (HTTP 403) with clear messages explaining access issues
 
 ## v2 Requirements
 
@@ -67,17 +67,17 @@
 | SELECT-02 | Phase 3 | Pending |
 | SELECT-03 | Phase 4 | Pending |
 | SELECT-04 | Phase 4 | Pending |
-| INPUT-01 | Phase 2 | Pending |
-| INPUT-02 | Phase 2 | Pending |
-| INPUT-03 | Phase 2 | Pending |
+| INPUT-01 | Phase 2 | Complete |
+| INPUT-02 | Phase 2 | Complete |
+| INPUT-03 | Phase 2 | Complete |
 | INPUT-04 | Phase 5 | Pending |
 | INPUT-05 | Phase 5 | Pending |
 | INPUT-06 | Phase 5 | Pending |
 | OUTPUT-01 | Phase 6 | Pending |
 | OUTPUT-02 | Phase 6 | Pending |
 | OUTPUT-03 | Phase 6 | Pending |
-| ERROR-01 | Phase 2 | Pending |
-| ERROR-02 | Phase 2 | Pending |
+| ERROR-01 | Phase 2 | Complete |
+| ERROR-02 | Phase 2 | Complete |
 
 **Coverage:** 17/17 v1 requirements mapped (100%)
 
