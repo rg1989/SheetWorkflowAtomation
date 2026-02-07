@@ -47,10 +47,11 @@ Plans:
   3. Backend can read Google Sheets natively via Sheets API and convert to DataFrame
   4. API rate limit errors (HTTP 429) trigger exponential backoff and return user-friendly messages
   5. Permission errors (HTTP 403) return clear messages explaining access issues
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: TBD during planning
+- [ ] 02-01-PLAN.md -- Credential builder, Drive file download (Excel/CSV/Sheets export), error handling with retry
+- [ ] 02-02-PLAN.md -- Native Sheets API read, Drive routing update for Google Sheets
 
 ### Phase 3: Backend Drive Endpoints
 **Goal**: REST API exposes Drive file operations to frontend
@@ -120,7 +121,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Token Management Foundation | 2/2 | Complete | 2026-02-07 |
-| 2. Backend Drive Service | 0/TBD | Not started | - |
+| 2. Backend Drive Service | 0/2 | Not started | - |
 | 3. Backend Drive Endpoints | 0/TBD | Not started | - |
 | 4. Frontend Picker UI | 0/TBD | Not started | - |
 | 5. Workflow Integration | 0/TBD | Not started | - |
