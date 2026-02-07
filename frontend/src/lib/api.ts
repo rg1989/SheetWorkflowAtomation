@@ -98,37 +98,43 @@ export const workflowApi = {
     }),
   
   /**
-   * Run a workflow with uploaded files.
+   * Run a workflow with uploaded files and/or Drive files.
    * @param id - Workflow ID
-   * @param files - Array of files to process (in order of expected files)
-   * @param fileConfigs - Map of file ID to {sheetName, headerRow}
+   * @param files - Array of local files to process (can be empty for Drive-only workflows)
+   * @param fileConfigs - Map of file ID to {source, sheetName, headerRow, driveFileId, driveMimeType}
    */
   run: async (
     id: string,
     files: File[],
-    fileConfigs: Record<string, { sheetName?: string; headerRow: number }>
+    fileConfigs: Record<string, {
+      source?: 'local' | 'drive'
+      sheetName?: string
+      headerRow: number
+      driveFileId?: string
+      driveMimeType?: string
+    }>
   ): Promise<RunResult> => {
     const formData = new FormData()
-    
+
     // Add files
     for (const file of files) {
       formData.append('files', file)
     }
-    
+
     // Add file configs as JSON
     formData.append('file_configs', JSON.stringify(fileConfigs))
-    
+
     const response = await fetch(`${API_BASE}/workflows/${id}/run`, {
       ...defaultFetchOptions,
       method: 'POST',
       body: formData,
     })
-    
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Unknown error' }))
       throw new Error(error.detail || `HTTP ${response.status}`)
     }
-    
+
     return response.json()
   },
   
@@ -223,4 +229,10 @@ export const driveApi = {
         range_name: rangeName,
       }),
     }),
+
+  /** Fetch list of sheet tabs for a Google Sheets spreadsheet */
+  getSheetTabs: (spreadsheetId: string) =>
+    fetchJSON<{ tabs: Array<{ title: string; index: number; sheetId: number }> }>(
+      `/drive/sheets/tabs?spreadsheet_id=${encodeURIComponent(spreadsheetId)}`
+    ),
 }

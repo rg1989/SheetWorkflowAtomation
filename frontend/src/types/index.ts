@@ -346,3 +346,19 @@ export interface DriveFileResponse {
   columns: string[]
   sample_data: Record<string, unknown>[]
 }
+
+/** State tracking for a Drive file selected at run time */
+export interface DriveRunFileState {
+  driveFileId: string
+  driveMimeType: string
+  driveModifiedTime?: string
+  name: string
+  validated: boolean
+  error?: string
+  columns?: ColumnInfo[]
+  sampleData?: Record<string, unknown>[]
+  rowCount?: number
+  availableTabs?: Array<{ title: string; index: number; sheetId: number }>
+  selectedTab?: string
+  isLoading?: boolean
+}
