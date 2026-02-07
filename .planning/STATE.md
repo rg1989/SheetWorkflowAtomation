@@ -127,10 +127,11 @@ None yet.
 | 005 | Add sheet/tab selection for Excel files | 2026-02-07 | 0cd723b | [005-add-sheet-tab-selection-for-excel-files-](./quick/005-add-sheet-tab-selection-for-excel-files-/) |
 | 006 | Normalize Drive Excel column names to strings | 2026-02-07 | 8deb3ac | [006-normalize-drive-excel-column-names-to-st](./quick/006-normalize-drive-excel-column-names-to-st/) |
 | 007 | Enable sheet selection for Drive Excel files | 2026-02-07 | 32a0581 | [007-enable-sheet-selection-for-drive-excel](./quick/007-enable-sheet-selection-for-drive-excel/) |
+| 008 | Add default names for history items and WorkflowCard downloads | 2026-02-07 | 750679a | [008-add-default-names-for-history-items-and-](./quick/008-add-default-names-for-history-items-and-/) |
 
 ## Session Continuity
 
-Last session: 2026-02-07 20:00:26 UTC
-Stopped at: Completed quick task 007 — Enable sheet selection for Drive Excel files
+Last session: 2026-02-07 20:04:36 UTC
+Stopped at: Completed quick task 008 — Add default names for history items and WorkflowCard downloads
 Resume file: None
 Next: Ready for additional quick tasks or milestone audit
