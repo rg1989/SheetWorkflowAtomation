@@ -5,6 +5,7 @@ import type {
   Run,
   FileParseResult,
   RunResult,
+  DriveFileResponse,
 } from '../types'
 
 const API_BASE = '/api'
@@ -18,6 +19,7 @@ export interface AuthUser {
   email: string
   name: string | null
   avatarUrl: string | null
+  driveConnected: boolean  // NEW: whether user has Drive scopes
 }
 
 // Auth API
@@ -157,18 +159,50 @@ export const fileApi = {
       formData.append('sheet_name', sheetName)
     }
     formData.append('header_row', headerRow.toString())
-    
+
     const response = await fetch(`${API_BASE}/files/parse-columns`, {
       ...defaultFetchOptions,
       method: 'POST',
       body: formData,
     })
-    
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Unknown error' }))
       throw new Error(error.detail || `HTTP ${response.status}`)
     }
-    
+
     return response.json()
   },
+}
+
+// Drive API
+export const driveApi = {
+  /** Fetch valid Google access token for Picker initialization */
+  getToken: async (): Promise<{ access_token: string; expires_at: string | null }> => {
+    const response = await fetch(`${API_BASE}/auth/token`, {
+      ...defaultFetchOptions,
+    })
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Not authenticated' }))
+      throw new Error(error.detail || `HTTP ${response.status}`)
+    }
+    return response.json()
+  },
+
+  /** Download and parse a Drive file by ID */
+  downloadFile: (fileId: string) =>
+    fetchJSON<DriveFileResponse>('/drive/download', {
+      method: 'POST',
+      body: JSON.stringify({ file_id: fileId }),
+    }),
+
+  /** Read a Google Sheet by spreadsheet ID */
+  readSheet: (spreadsheetId: string, rangeName?: string) =>
+    fetchJSON<DriveFileResponse>('/drive/read', {
+      method: 'POST',
+      body: JSON.stringify({
+        spreadsheet_id: spreadsheetId,
+        range_name: rangeName,
+      }),
+    }),
 }

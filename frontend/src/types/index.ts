@@ -36,6 +36,14 @@ export interface FileDefinition {
   availableSheets?: string[] // All available sheets in the file
   originalFile?: File // Keep reference to original file for re-parsing
   headerRow?: number // Which row contains headers (1-indexed, default: 1)
+
+  // File source type
+  source?: 'local' | 'drive'  // Optional for backward compat, defaults to 'local'
+
+  // Drive file metadata (only present when source === 'drive')
+  driveFileId?: string        // Google Drive file ID
+  driveMimeType?: string      // MIME type from Drive (e.g., 'application/vnd.google-apps.spreadsheet')
+  driveModifiedTime?: string  // ISO 8601 timestamp of last modification
 }
 
 // ============================================================================
@@ -307,4 +315,34 @@ export interface DiffResult {
   changes: RowChange[]
   warnings: Warning[]
   summary: DiffSummary
+}
+
+// ============================================================================
+// Google Drive Types
+// ============================================================================
+
+/** Metadata returned from Google Picker when user selects a file */
+export interface DrivePickerFile {
+  id: string
+  name: string
+  mimeType: string
+  lastEditedUtc?: number
+  sizeBytes?: number
+}
+
+/** Response from /api/drive/download and /api/drive/read endpoints */
+export interface DriveFileResponse {
+  success: boolean
+  file_metadata: {
+    id: string
+    name: string
+    mime_type: string
+    modified_time: string
+    owner: string
+    web_view_link: string
+    size?: number
+  }
+  row_count: number
+  columns: string[]
+  sample_data: Record<string, unknown>[]
 }

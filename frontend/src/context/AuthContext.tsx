@@ -11,7 +11,9 @@ import { authApi, type AuthUser } from '../lib/api'
 type AuthState = {
   user: AuthUser | null
   loading: boolean
+  driveConnected: boolean  // NEW: convenience accessor
   login: () => void
+  loginWithDrive: () => void  // NEW: login requesting Drive scopes
   logout: () => Promise<void>
 }
 
@@ -40,6 +42,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.href = authApi.loginUrl()
   }, [])
 
+  const loginWithDrive = useCallback(() => {
+    window.location.href = authApi.loginUrl() + '?scope=drive'
+  }, [])
+
   const logout = useCallback(async () => {
     try {
       await authApi.logout()
@@ -49,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, driveConnected: user?.driveConnected ?? false, login, loginWithDrive, logout }}>
       {children}
     </AuthContext.Provider>
   )
