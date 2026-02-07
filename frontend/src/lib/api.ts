@@ -222,10 +222,14 @@ export const driveApi = {
   },
 
   /** Download and parse a Drive file by ID */
-  downloadFile: (fileId: string, headerRow?: number) =>
+  downloadFile: (fileId: string, headerRow?: number, sheetName?: string) =>
     fetchJSON<DriveFileResponse>('/drive/download', {
       method: 'POST',
-      body: JSON.stringify({ file_id: fileId, header_row: headerRow }),
+      body: JSON.stringify({
+        file_id: fileId,
+        header_row: headerRow,
+        ...(sheetName && { sheet_name: sheetName }),
+      }),
     }),
 
   /** Read a Google Sheet by spreadsheet ID */

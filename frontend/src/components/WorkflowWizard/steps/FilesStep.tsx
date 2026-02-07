@@ -128,9 +128,17 @@ export function FilesStep({
               sheetName,
             }
           } else {
-            setError('Sheet selection only available for Google Sheets')
-            setChangingSheetFileId(null)
-            return
+            // For Excel/CSV Drive files, use downloadFile with sheet_name
+            const downloadResult = await driveApi.downloadFile(file.driveFileId, currentHeaderRow, sheetName)
+            result = {
+              columns: downloadResult.columns.map(col => ({
+                name: col,
+                type: 'text' as const,
+                sampleValues: [],
+              })),
+              sampleData: downloadResult.sample_data,
+              sheetName,
+            }
           }
         } else if (file.originalFile) {
           // Use local file API
@@ -180,7 +188,7 @@ export function FilesStep({
             }
           } else {
             // For Excel/CSV files, use downloadFile
-            const downloadResult = await driveApi.downloadFile(file.driveFileId, headerRow)
+            const downloadResult = await driveApi.downloadFile(file.driveFileId, headerRow, sheetName)
             result = {
               columns: downloadResult.columns.map(col => ({
                 name: col,
