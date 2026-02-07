@@ -353,7 +353,8 @@ async def run_workflow(
                         df = await read_sheet_to_df(
                             sheets_service,
                             drive_file_id,
-                            range_name=sheet_name
+                            range_name=sheet_name,
+                            header_row=header_row - 1  # Convert to 0-indexed
                         )
                     else:
                         # Other Drive files (Excel, CSV) or Sheets without tab selection
@@ -361,7 +362,9 @@ async def run_workflow(
                             drive_service,
                             drive_file_id,
                             mime_type=drive_mime_type,
-                            sheets_service=sheets_service
+                            sheets_service=sheets_service,
+                            sheet_name=sheet_name,
+                            header_row=header_row - 1  # Convert to 0-indexed
                         )
 
                     dataframes[file_id] = df
